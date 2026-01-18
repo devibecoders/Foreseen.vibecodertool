@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     let analyzed = 0
     const errors: string[] = []
 
-    const analysisPromises = articlesWithoutAnalysis.map(article =>
+    const analysisPromises = articlesWithoutAnalysis.map((article: { id: string; title: string; url: string; rawContent: string | null; scanId: string | null }) =>
       queue.add(async () => {
         try {
           console.log(`Analyzing: ${article.title.substring(0, 50)}...`)
