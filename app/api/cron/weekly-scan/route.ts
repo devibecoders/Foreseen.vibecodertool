@@ -3,22 +3,23 @@
  * 
  * Endpoint for Vercel Cron to trigger weekly article scan.
  * Secured with CRON_SECRET header validation.
- * 
- * Setup in vercel.json:
- * {
- *   "crons": [
- *     {
- *       "path": "/api/cron/weekly-scan",
- *       "schedule": "0 9 * * 1"
- *     }
- *   ]
- * }
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { ingestFromSources, deduplicateArticles } from '@/lib/ingest'
 import { llmService } from '@/lib/llm'
 import { AsyncQueue } from '@/lib/queue'
+
+// Force dynamic rendering - never pre-render this route
+export const dynamic = 'force-dynamic'
+
+// Create Supabase client lazily (only when route is called)
+function getSupabaseAdmin() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) throw new Error('Supabase env vars not configured')
+    return createClient(url, key)
+}
 
 export async function GET(request: NextRequest) {
     // Verify cron secret for security
@@ -29,10 +30,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const supabase = getSupabaseAdmin()
+
     console.log(`[Cron] Weekly scan triggered at ${new Date().toISOString()}`)
 
     // Create scan record
-    const { data: scan, error: scanError } = await supabaseAdmin
+    const { data: scan, error: scanError } = await supabase
         .from('scans')
         .insert({
             status: 'running',
@@ -53,44 +56,44 @@ export async function GET(request: NextRequest) {
         const ingestResult = await ingestFromSources(daysBack)
 
         // Step 2: Link articles to scan
-        const { data: newArticles } = await supabaseAdmin
+        const { data: newArticles } = await supabase
             .from('articles')
             .select('id')
             .is('scan_id', null)
             .gte('created_at', scan.started_at)
 
         if (newArticles && newArticles.length > 0) {
-            await supabaseAdmin
+            await supabase
                 .from('articles')
                 .update({ scan_id: scan.id })
-                .in('id', newArticles.map(a => a.id))
+                .in('id', newArticles.map((a: { id: string }) => a.id))
         }
 
         // Step 3: Deduplicate
         const duplicatesRemoved = await deduplicateArticles()
 
         // Step 4: Analyze (limited to avoid timeout)
-        const { data: articlesToAnalyze } = await supabaseAdmin
+        const { data: articlesToAnalyze } = await supabase
             .from('articles')
             .select('id, title, url, raw_content')
             .eq('scan_id', scan.id)
             .order('published_at', { ascending: false })
             .limit(25) // Limit for Vercel timeout
 
-        const articleIds = (articlesToAnalyze || []).map(a => a.id)
-        const { data: existingAnalyses } = await supabaseAdmin
+        const articleIds = (articlesToAnalyze || []).map((a: { id: string }) => a.id)
+        const { data: existingAnalyses } = await supabase
             .from('analyses')
             .select('article_id')
             .in('article_id', articleIds)
 
-        const analyzedIds = new Set((existingAnalyses || []).map(a => a.article_id))
-        const articlesWithoutAnalysis = (articlesToAnalyze || []).filter(a => !analyzedIds.has(a.id))
+        const analyzedIds = new Set((existingAnalyses || []).map((a: { article_id: string }) => a.article_id))
+        const articlesWithoutAnalysis = (articlesToAnalyze || []).filter((a: { id: string }) => !analyzedIds.has(a.id))
 
         let analyzed = 0
         const maxParallel = parseInt(process.env.MAX_PARALLEL_LLM_CALLS || '2')
         const queue = new AsyncQueue(maxParallel)
 
-        const analysisPromises = articlesWithoutAnalysis.map((article) =>
+        const analysisPromises = articlesWithoutAnalysis.map((article: { id: string; title: string; url: string; raw_content: string | null }) =>
             queue.add(async () => {
                 try {
                     const analysis = await llmService.analyzeArticle(
@@ -99,7 +102,7 @@ export async function GET(request: NextRequest) {
                         article.raw_content || undefined
                     )
 
-                    await supabaseAdmin.from('analyses').insert({
+                    await supabase.from('analyses').insert({
                         article_id: article.id,
                         summary: analysis.summary,
                         categories: analysis.categories.join(','),
@@ -121,7 +124,7 @@ export async function GET(request: NextRequest) {
         await queue.waitForAll()
 
         // Update scan as completed
-        await supabaseAdmin
+        await supabase
             .from('scans')
             .update({
                 status: 'completed',
@@ -144,7 +147,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('[Cron] Error:', error)
 
-        await supabaseAdmin
+        await supabase
             .from('scans')
             .update({
                 status: 'failed',
