@@ -1,45 +1,47 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+/**
+ * Scans API Route
+ * 
+ * GET /api/scans - List all scans or get a specific scan
+ */
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const scanId = searchParams.get('scanId')
+
   try {
-    const { searchParams } = new URL(request.url)
-    const scanId = searchParams.get('scanId')
-
     if (scanId) {
-      const scan = await prisma.scan.findUnique({
-        where: { id: scanId },
-        include: {
-          articles: {
-            include: {
-              analysis: true
-            },
-            orderBy: { publishedAt: 'desc' }
-          }
-        }
-      })
+      const { data: scan, error } = await supabaseAdmin
+        .from('scans')
+        .select(`
+          *,
+          articles (
+            *,
+            analyses (*)
+          )
+        `)
+        .eq('id', scanId)
+        .single()
 
-      if (!scan) {
-        return NextResponse.json({ error: 'Scan not found' }, { status: 404 })
-      }
-
-      return NextResponse.json({ scan })
+      if (error) throw error
+      return NextResponse.json(scan)
     }
 
-    const scans = await prisma.scan.findMany({
-      orderBy: { startedAt: 'desc' },
-      include: {
-        _count: {
-          select: { articles: true }
-        }
-      }
-    })
+    const { data: scans, error } = await supabaseAdmin
+      .from('scans')
+      .select(`
+        *,
+        articles (count)
+      `)
+      .order('started_at', { ascending: false })
+      .limit(20)
 
-    return NextResponse.json({ scans })
+    if (error) throw error
+    return NextResponse.json(scans)
   } catch (error) {
-    console.error('Scans fetch error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch scans' },
       { status: 500 }
     )
   }

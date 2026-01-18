@@ -1,66 +1,78 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+/**
+ * Sources API Route
+ * 
+ * GET    /api/sources - List all sources
+ * POST   /api/sources - Create a new source
+ * PUT    /api/sources - Update an existing source
+ */
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   try {
-    const sources = await prisma.source.findMany({
-      orderBy: { name: 'asc' }
-    })
+    const { data: sources, error } = await supabaseAdmin
+      .from('sources')
+      .select('*')
+      .order('name')
 
-    return NextResponse.json({ sources })
+    if (error) throw error
+    return NextResponse.json(sources)
   } catch (error) {
-    console.error('Sources fetch error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch sources' },
       { status: 500 }
     )
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    
-    const source = await prisma.source.create({
-      data: {
+
+    const { data: source, error } = await supabaseAdmin
+      .from('sources')
+      .insert({
         name: body.name,
-        type: body.type,
-        url: body.url || null,
-        query: body.query || null,
+        type: body.type || 'rss',
+        url: body.url,
+        query: body.query,
         enabled: body.enabled ?? true,
-      }
-    })
+      })
+      .select()
+      .single()
 
-    return NextResponse.json({ source })
+    if (error) throw error
+    return NextResponse.json(source)
   } catch (error) {
-    console.error('Source creation error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : 'Failed to create source' },
       { status: 500 }
     )
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    
-    const source = await prisma.source.update({
-      where: { id: body.id },
-      data: {
+
+    const { data: source, error } = await supabaseAdmin
+      .from('sources')
+      .update({
         name: body.name,
         type: body.type,
-        url: body.url || null,
-        query: body.query || null,
+        url: body.url,
+        query: body.query,
         enabled: body.enabled,
-      }
-    })
+      })
+      .eq('id', body.id)
+      .select()
+      .single()
 
-    return NextResponse.json({ source })
+    if (error) throw error
+    return NextResponse.json(source)
   } catch (error) {
-    console.error('Source update error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : 'Failed to update source' },
       { status: 500 }
     )
   }

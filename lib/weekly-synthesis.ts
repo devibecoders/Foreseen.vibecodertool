@@ -1,5 +1,5 @@
 import { llmService } from './llm'
-import { prisma } from './prisma'
+import { supabaseAdmin } from './supabase'
 
 export interface MacroTrend {
   trend: string
@@ -122,7 +122,7 @@ export class WeeklySynthesisService {
   ): Promise<WeeklySynthesis> {
     // 1. Select articles
     const articles = await this.selectArticles(startDate, endDate, maxArticles)
-    
+
     if (articles.length === 0) {
       throw new Error('No articles found for the specified date range')
     }
@@ -143,49 +143,47 @@ export class WeeklySynthesisService {
   }
 
   private async selectArticles(startDate: Date, endDate: Date, maxArticles: number) {
-    const articles = await prisma.article.findMany({
-      where: {
-        publishedAt: {
-          gte: startDate,
-          lte: endDate
-        },
-        analysis: {
-          isNot: null
-        }
-      },
-      include: {
-        analysis: true
-      },
-      orderBy: [
-        { analysis: { impactScore: 'desc' } }
-      ],
-      take: maxArticles
-    })
+    // Fetch articles with analyses from Supabase
+    const { data: articles, error } = await supabaseAdmin
+      .from('articles')
+      .select(`
+        *,
+        analyses (*)
+      `)
+      .gte('published_at', startDate.toISOString())
+      .lte('published_at', endDate.toISOString())
+      .order('published_at', { ascending: false })
+      .limit(maxArticles)
 
-    return articles.filter((a: { analysis: unknown }) => a.analysis !== null)
+    if (error) throw new Error(`Failed to fetch articles: ${error.message}`)
+
+    // Filter to only articles with analysis and sort by impact score
+    return (articles || [])
+      .filter(a => a.analyses && a.analyses.length > 0)
+      .sort((a, b) => (b.analyses[0]?.impact_score || 0) - (a.analyses[0]?.impact_score || 0))
   }
 
   private prepareContext(articles: any[], startDate: Date, endDate: Date): string {
     const weekLabel = this.getWeekLabel(startDate)
-    
+
     let context = `Week: ${weekLabel}\n`
     context += `Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}\n`
     context += `Total articles: ${articles.length}\n\n`
     context += `ARTICLES TO ANALYZE:\n\n`
 
     articles.forEach((article, idx) => {
-      const analysis = article.analysis!
+      const analysis = article.analyses[0]
       context += `[${idx + 1}] ${article.title}\n`
       context += `Source: ${article.source}\n`
       context += `URL: ${article.url}\n`
-      context += `Impact Score: ${analysis.impactScore}/100\n`
+      context += `Impact Score: ${analysis.impact_score}/100\n`
       context += `Categories: ${analysis.categories}\n`
       context += `Summary: ${analysis.summary}\n`
-      context += `For Vibecoders: ${analysis.vibecodersAngle}\n`
-      context += `For Clients: ${analysis.customerAngle}\n`
-      
-      if (analysis.keyTakeaways) {
-        const takeaways = analysis.keyTakeaways.split('|||').filter(Boolean)
+      context += `For Vibecoders: ${analysis.vibecoders_angle}\n`
+      context += `For Clients: ${analysis.customer_angle}\n`
+
+      if (analysis.key_takeaways) {
+        const takeaways = analysis.key_takeaways.split('|||').filter(Boolean)
         if (takeaways.length > 0) {
           context += `Key Points:\n`
           takeaways.forEach((t: string) => context += `  - ${t}\n`)
@@ -199,7 +197,7 @@ export class WeeklySynthesisService {
 
   private async callLLMForSynthesis(context: string): Promise<Omit<WeeklySynthesis, 'full_markdown'>> {
     const provider = process.env.LLM_PROVIDER || 'openai'
-    const model = provider === 'openai' 
+    const model = provider === 'openai'
       ? (process.env.OPENAI_MODEL || 'gpt-4o-mini')
       : (process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022')
 
@@ -208,7 +206,7 @@ export class WeeklySynthesisService {
     if (provider === 'openai') {
       const OpenAI = (await import('openai')).default
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-      
+
       const completion = await client.chat.completions.create({
         model,
         messages: [

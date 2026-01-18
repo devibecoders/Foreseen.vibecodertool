@@ -1,5 +1,10 @@
+/**
+ * Ingest Module - Fetches articles from RSS feeds
+ * 
+ * Uses Supabase for database operations.
+ */
 import Parser from 'rss-parser'
-import { prisma } from './prisma'
+import { supabaseAdmin } from './supabase'
 import { subDays } from 'date-fns'
 
 const parser = new Parser()
@@ -11,16 +16,19 @@ export interface IngestResult {
 }
 
 export async function ingestFromSources(daysBack: number = 7): Promise<IngestResult> {
-  const sources = await prisma.source.findMany({
-    where: { enabled: true }
-  })
+  const { data: sources, error } = await supabaseAdmin
+    .from('sources')
+    .select('*')
+    .eq('enabled', true)
+
+  if (error) throw new Error(`Failed to fetch sources: ${error.message}`)
 
   let itemsFetched = 0
   let itemsNew = 0
   const errors: string[] = []
   const cutoffDate = subDays(new Date(), daysBack)
 
-  for (const source of sources) {
+  for (const source of sources || []) {
     try {
       if (source.type === 'rss' && source.url) {
         const result = await ingestRSS(source.url, source.name, source.id, cutoffDate)
@@ -51,28 +59,26 @@ async function ingestRSS(
     if (!item.link || !item.title) continue
 
     const publishedAt = item.pubDate ? new Date(item.pubDate) : new Date()
-    
+
     if (publishedAt < cutoffDate) continue
 
     fetched++
 
-    try {
-      await prisma.article.create({
-        data: {
-          title: item.title,
-          url: item.link,
-          source: sourceName,
-          sourceId: sourceId,
-          publishedAt,
-          rawContent: item.contentSnippet || item.content || null,
-        }
+    const { error } = await supabaseAdmin
+      .from('articles')
+      .insert({
+        title: item.title,
+        url: item.link,
+        source: sourceName,
+        source_id: sourceId,
+        published_at: publishedAt.toISOString(),
+        raw_content: item.contentSnippet || item.content || null,
       })
+
+    if (!error) {
       newItems++
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Unique constraint')) {
-        continue
-      }
-      throw error
+    } else if (!error.message.includes('duplicate') && !error.message.includes('unique')) {
+      console.error(`Failed to insert article: ${error.message}`)
     }
   }
 
@@ -88,21 +94,23 @@ export function normalizeTitle(title: string): string {
 }
 
 export async function deduplicateArticles(): Promise<number> {
-  const articles = await prisma.article.findMany({
-    orderBy: { createdAt: 'asc' }
-  })
+  const { data: articles, error } = await supabaseAdmin
+    .from('articles')
+    .select('id, title, url, created_at')
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(`Failed to fetch articles for deduplication: ${error.message}`)
 
   const seen = new Map<string, string>()
   let duplicatesRemoved = 0
 
-  for (const article of articles) {
+  for (const article of articles || []) {
     const normalizedTitle = normalizeTitle(article.title)
-    const key = `${normalizedTitle}|${article.url}`
 
     if (seen.has(normalizedTitle)) {
       const existingId = seen.get(normalizedTitle)!
       if (existingId !== article.id) {
-        await prisma.article.delete({ where: { id: article.id } })
+        await supabaseAdmin.from('articles').delete().eq('id', article.id)
         duplicatesRemoved++
         continue
       }

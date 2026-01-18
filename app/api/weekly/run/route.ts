@@ -1,7 +1,11 @@
+/**
+ * Weekly Synthesis API Route
+ * 
+ * POST /api/weekly/run - Generate a weekly synthesis report
+ */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { weeklySynthesisService } from '@/lib/weekly-synthesis'
-import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +20,6 @@ export async function POST(request: NextRequest) {
     }
 
     // For now, use a default user_id since we don't have auth yet
-    // TODO: Replace with actual auth.uid() when Supabase Auth is integrated
     const user_id = 'default-user'
 
     const startDate = new Date(start_date)
@@ -66,23 +69,22 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Get articles for the date range
-      const articles = await prisma.article.findMany({
-        where: {
-          publishedAt: {
-            gte: startDate,
-            lte: endDate
-          },
-          analysis: {
-            isNot: null
-          }
-        },
-        include: {
-          analysis: true
-        }
-      })
+      // Get articles for the date range from Supabase
+      const { data: articles, error: articlesError } = await supabaseAdmin
+        .from('articles')
+        .select(`
+          *,
+          analyses (*)
+        `)
+        .gte('published_at', startDate.toISOString())
+        .lte('published_at', endDate.toISOString())
+        .order('published_at', { ascending: false })
 
-      const itemsConsidered = articles.length
+      if (articlesError) throw new Error(`Failed to fetch articles: ${articlesError.message}`)
+
+      // Filter to only articles with analysis
+      const articlesWithAnalysis = (articles || []).filter(a => a.analyses && a.analyses.length > 0)
+      const itemsConsidered = articlesWithAnalysis.length
 
       // Update run with items_considered
       await supabaseAdmin
@@ -140,10 +142,10 @@ export async function POST(request: NextRequest) {
       }
 
       // Link articles to brief
-      const articleLinks = articles.slice(0, 40).map((article: { id: string; analysis: { impactScore: number } | null }) => ({
+      const articleLinks = articlesWithAnalysis.slice(0, 40).map((article) => ({
         brief_id: brief.id,
         article_id: article.id,
-        used_reason: `Impact: ${article.analysis?.impactScore || 0}`
+        used_reason: `Impact: ${article.analyses[0]?.impact_score || 0}`
       }))
 
       await supabaseAdmin
@@ -171,7 +173,7 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
       console.error('Synthesis generation error:', error)
-      
+
       // Update run status to failed
       await supabaseAdmin
         .from('weekly_runs')
@@ -183,7 +185,7 @@ export async function POST(request: NextRequest) {
         .eq('id', run.id)
 
       return NextResponse.json(
-        { 
+        {
           error: 'Failed to generate synthesis',
           details: error instanceof Error ? error.message : 'Unknown error'
         },
@@ -194,7 +196,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Weekly run error:', error)
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

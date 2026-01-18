@@ -1,96 +1,108 @@
+/**
+ * Scan Pipeline API Route
+ * 
+ * POST /api/run - Triggers article ingestion and LLM analysis
+ * GET  /api/run - Returns last scan info
+ */
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { supabaseAdmin } from '@/lib/supabase'
 import { ingestFromSources, deduplicateArticles } from '@/lib/ingest'
 import { llmService } from '@/lib/llm'
 import { AsyncQueue } from '@/lib/queue'
 
 export async function POST(request: Request) {
-  const scan = await prisma.scan.create({
-    data: {
+  // Create scan record
+  const { data: scan, error: scanError } = await supabaseAdmin
+    .from('scans')
+    .insert({
       status: 'running',
-      startedAt: new Date(),
-    }
-  })
+      started_at: new Date().toISOString(),
+    })
+    .select()
+    .single()
+
+  if (scanError || !scan) {
+    return NextResponse.json({ success: false, error: 'Failed to create scan' }, { status: 500 })
+  }
 
   try {
     const body = await request.json().catch(() => ({}))
     const daysBack = body.daysBack || parseInt(process.env.WEEKLY_DAYS || '7')
 
     console.log(`[Scan ${scan.id}] Starting scan at ${new Date().toISOString()}`)
-    console.log(`OpenAI Key present: ${process.env.OPENAI_API_KEY ? 'YES' : 'NO'}`)
 
+    // Step 1: Ingest articles
     console.log('[1/4] Ingesting articles...')
     const ingestResult = await ingestFromSources(daysBack)
     console.log(`Fetched: ${ingestResult.itemsFetched}, New: ${ingestResult.itemsNew}`)
 
+    // Step 2: Link new articles to this scan
     console.log('[2/4] Linking new articles to scan...')
-    const newArticles = await prisma.article.findMany({
-      where: {
-        scanId: null,
-        createdAt: {
-          gte: scan.startedAt
-        }
-      }
-    })
-    
-    for (const article of newArticles) {
-      await prisma.article.update({
-        where: { id: article.id },
-        data: { scanId: scan.id }
-      })
-    }
-    console.log(`Linked ${newArticles.length} articles to scan ${scan.id}`)
+    const { data: newArticles } = await supabaseAdmin
+      .from('articles')
+      .select('id')
+      .is('scan_id', null)
+      .gte('created_at', scan.started_at)
 
+    if (newArticles && newArticles.length > 0) {
+      const ids = newArticles.map(a => a.id)
+      await supabaseAdmin
+        .from('articles')
+        .update({ scan_id: scan.id })
+        .in('id', ids)
+      console.log(`Linked ${newArticles.length} articles to scan ${scan.id}`)
+    }
+
+    // Step 3: Deduplicate
     console.log('[3/4] Deduplicating...')
     const duplicatesRemoved = await deduplicateArticles()
     console.log(`Removed ${duplicatesRemoved} duplicates`)
 
+    // Step 4: Analyze articles without analysis
     console.log('[4/4] Analyzing articles...')
-    const articlesWithoutAnalysis = await prisma.article.findMany({
-      where: {
-        analysis: null
-      },
-      orderBy: { publishedAt: 'desc' },
-      take: 50
-    })
+    const { data: articlesToAnalyze } = await supabaseAdmin
+      .from('articles')
+      .select('id, title, url, raw_content')
+      .is('scan_id', scan.id)
+      .order('published_at', { ascending: false })
+      .limit(50)
+
+    // Check which articles already have analysis
+    const articleIds = (articlesToAnalyze || []).map(a => a.id)
+    const { data: existingAnalyses } = await supabaseAdmin
+      .from('analyses')
+      .select('article_id')
+      .in('article_id', articleIds)
+
+    const analyzedIds = new Set((existingAnalyses || []).map(a => a.article_id))
+    const articlesWithoutAnalysis = (articlesToAnalyze || []).filter(a => !analyzedIds.has(a.id))
 
     console.log(`Found ${articlesWithoutAnalysis.length} articles to analyze`)
-    
-    for (const article of articlesWithoutAnalysis) {
-      if (!article.scanId) {
-        await prisma.article.update({
-          where: { id: article.id },
-          data: { scanId: scan.id }
-        })
-      }
-    }
 
     const maxParallel = parseInt(process.env.MAX_PARALLEL_LLM_CALLS || '3')
     const queue = new AsyncQueue(maxParallel)
     let analyzed = 0
     const errors: string[] = []
 
-    const analysisPromises = articlesWithoutAnalysis.map((article: { id: string; title: string; url: string; rawContent: string | null; scanId: string | null }) =>
+    const analysisPromises = articlesWithoutAnalysis.map((article) =>
       queue.add(async () => {
         try {
           console.log(`Analyzing: ${article.title.substring(0, 50)}...`)
           const analysis = await llmService.analyzeArticle(
             article.title,
             article.url,
-            article.rawContent || undefined
+            article.raw_content || undefined
           )
 
-          await prisma.analysis.create({
-            data: {
-              articleId: article.id,
-              summary: analysis.summary,
-              categories: analysis.categories.join(','),
-              impactScore: analysis.impactScore,
-              relevanceReason: analysis.relevanceReason,
-              customerAngle: analysis.customerAngle,
-              vibecodersAngle: analysis.vibecodersAngle,
-              keyTakeaways: analysis.keyTakeaways.join('|||'),
-            }
+          await supabaseAdmin.from('analyses').insert({
+            article_id: article.id,
+            summary: analysis.summary,
+            categories: analysis.categories.join(','),
+            impact_score: analysis.impactScore,
+            relevance_reason: analysis.relevanceReason,
+            customer_angle: analysis.customerAngle,
+            vibecoders_angle: analysis.vibecodersAngle,
+            key_takeaways: analysis.keyTakeaways.join('|||'),
           })
 
           analyzed++
@@ -108,20 +120,21 @@ export async function POST(request: Request) {
 
     console.log('[5/5] Complete!')
 
-    await prisma.scan.update({
-      where: { id: scan.id },
-      data: {
+    // Update scan as completed
+    await supabaseAdmin
+      .from('scans')
+      .update({
         status: 'completed',
-        completedAt: new Date(),
-        itemsFetched: ingestResult.itemsFetched,
-        itemsAnalyzed: analyzed,
-      }
-    })
+        completed_at: new Date().toISOString(),
+        items_fetched: ingestResult.itemsFetched,
+        items_analyzed: analyzed,
+      })
+      .eq('id', scan.id)
 
     return NextResponse.json({
       success: true,
       scanId: scan.id,
-      scanDate: scan.startedAt,
+      scanDate: scan.started_at,
       itemsFetched: ingestResult.itemsFetched,
       itemsNew: ingestResult.itemsNew,
       duplicatesRemoved,
@@ -130,20 +143,20 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Scan error:', error)
-    
-    await prisma.scan.update({
-      where: { id: scan.id },
-      data: {
+
+    await supabaseAdmin
+      .from('scans')
+      .update({
         status: 'failed',
-        completedAt: new Date(),
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      }
-    })
+        completed_at: new Date().toISOString(),
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      })
+      .eq('id', scan.id)
 
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )
@@ -151,12 +164,15 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const lastRun = await prisma.runLog.findFirst({
-    orderBy: { startedAt: 'desc' }
-  })
+  const { data: lastScan } = await supabaseAdmin
+    .from('scans')
+    .select('*')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .single()
 
-  return NextResponse.json({ 
+  return NextResponse.json({
     message: 'Use POST to trigger weekly scan',
-    lastRun
+    lastScan
   })
 }

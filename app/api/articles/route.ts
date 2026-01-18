@@ -1,49 +1,37 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+/**
+ * Articles API Route
+ * 
+ * GET /api/articles - List articles with analyses
+ */
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const limit = parseInt(searchParams.get('limit') || '50')
+  const offset = parseInt(searchParams.get('offset') || '0')
+
   try {
-    const { searchParams } = new URL(request.url)
-    
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
-    const category = searchParams.get('category')
-    const minImpactScore = searchParams.get('minImpactScore')
+    const { data: articles, error, count } = await supabaseAdmin
+      .from('articles')
+      .select(`
+        *,
+        analyses (*)
+      `, { count: 'exact' })
+      .order('published_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
-    const articles = await prisma.article.findMany({
-      where: {
-        ...(startDate && endDate ? {
-          publishedAt: {
-            gte: new Date(startDate),
-            lte: new Date(endDate),
-          }
-        } : {}),
-        analysis: {
-          ...(category ? {
-            categories: {
-              contains: category
-            }
-          } : {}),
-          ...(minImpactScore ? {
-            impactScore: {
-              gte: parseInt(minImpactScore)
-            }
-          } : {})
-        }
-      },
-      include: {
-        analysis: true
-      },
-      orderBy: [
-        { publishedAt: 'desc' }
-      ]
+    if (error) throw error
+
+    return NextResponse.json({
+      articles,
+      total: count,
+      limit,
+      offset
     })
-
-    return NextResponse.json({ articles })
   } catch (error) {
-    console.error('Articles fetch error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch articles' },
       { status: 500 }
     )
   }

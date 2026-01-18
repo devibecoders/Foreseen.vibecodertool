@@ -1,20 +1,27 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+/**
+ * Single Scan API Route
+ * 
+ * DELETE /api/scans/[id] - Delete a scan
+ */
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    await prisma.scan.delete({
-      where: { id: params.id }
-    })
+    const { error } = await supabaseAdmin
+      .from('scans')
+      .delete()
+      .eq('id', params.id)
+
+    if (error) throw error
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Delete scan error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : 'Failed to delete scan' },
       { status: 500 }
     )
   }
