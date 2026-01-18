@@ -1,8 +1,11 @@
 import Navigation from '../components/Navigation';
-import { BarChart3, TrendingUp, Calendar, Sparkles, Zap, Target, FileText, Briefcase } from 'lucide-react';
+import { BarChart3, TrendingUp, Calendar, Sparkles, Zap, Target, FileText, Briefcase, RefreshCw, Database } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useDashboardStats } from '../hooks/useSupabase';
 
 export default function Dashboard() {
+  const { stats, loading } = useDashboardStats();
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -20,6 +23,46 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Database className="w-4 h-4 text-slate-500" />
+                <span className="text-xs text-gray-500 uppercase tracking-wide">Artikelen</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : stats.totalArticles}
+              </p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-4 h-4 text-slate-500" />
+                <span className="text-xs text-gray-500 uppercase tracking-wide">Scans</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : stats.totalScans}
+              </p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-4 h-4 text-slate-500" />
+                <span className="text-xs text-gray-500 uppercase tracking-wide">Syntheses</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : stats.totalBriefs}
+              </p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4 text-slate-500" />
+                <span className="text-xs text-gray-500 uppercase tracking-wide">Te beslissen</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : stats.pendingDecisions}
+              </p>
+            </div>
+          </div>
+
           {/* Welcome Card */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-8 text-white">
             <div className="flex items-center gap-3 mb-4">
@@ -27,7 +70,7 @@ export default function Dashboard() {
               <h2 className="text-xl font-bold">Welkom bij Foreseen</h2>
             </div>
             <p className="text-slate-300 max-w-2xl leading-relaxed mb-6">
-              Jouw private AI nieuws aggregator en kennisbank. Verzamelt wekelijks AI-updates, 
+              Jouw private AI nieuws aggregator en kennisbank. Verzamelt wekelijks AI-updates,
               analyseert op relevantie, en biedt uitgebreide syntheses voor het Vibecoders team.
             </p>
             <div className="flex items-center gap-4 text-sm">
@@ -48,20 +91,20 @@ export default function Dashboard() {
 
           {/* Quick Links Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Link 
+            <Link
               to="/weekly-briefs"
               className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 cursor-pointer transition-all duration-200 group"
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <FileText className="w-5 h-5 text-brand-600" />
+                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <FileText className="w-5 h-5 text-blue-600" />
                 </div>
               </div>
               <h3 className="font-semibold text-gray-900 mb-1">Weekly Synthesis</h3>
               <p className="text-xs text-gray-500">Wekelijkse AI trend rapporten</p>
             </Link>
 
-            <Link 
+            <Link
               to="/vibecode-core"
               className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 cursor-pointer transition-all duration-200 group"
             >
@@ -74,20 +117,20 @@ export default function Dashboard() {
               <p className="text-xs text-gray-500">Kennisbank & stack guides</p>
             </Link>
 
-            <Link 
+            <Link
               to="/decisions-inbox"
               className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 cursor-pointer transition-all duration-200 group"
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-success-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Target className="w-5 h-5 text-success-600" />
+                <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Target className="w-5 h-5 text-green-600" />
                 </div>
               </div>
               <h3 className="font-semibold text-gray-900 mb-1">Decision Inbox</h3>
               <p className="text-xs text-gray-500">Beslissingen in behandeling</p>
             </Link>
 
-            <Link 
+            <Link
               to="/projects"
               className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 cursor-pointer transition-all duration-200 group"
             >
@@ -101,39 +144,16 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          {/* Info Section */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Over dit platform</h3>
-            <div className="prose prose-slate prose-sm max-w-none">
-              <p className="text-gray-600 leading-relaxed">
-                <strong>Foreseen</strong> is een private AI nieuwsaggregator en knowledge hub voor Vibecoders. 
-                Het platform verzamelt wekelijks AI-updates van geselecteerde bronnen, analyseert de artikelen 
-                op relevantie en impact, en genereert uitgebreide synthese rapporten.
-              </p>
-              <p className="text-gray-600 leading-relaxed mt-3">
-                <strong>Belangrijke modules:</strong>
-              </p>
-              <ul className="text-gray-600 mt-2 space-y-1">
-                <li><strong>Dashboard</strong> - Overzicht van scans en artikelen</li>
-                <li><strong>Weekly Synthesis</strong> - Wekelijkse AI trend rapporten</li>
-                <li><strong>Vibecode Core</strong> - Kennisbank met stack guides, glossary, en checklists</li>
-                <li><strong>Decision Inbox</strong> - Artikelen die menselijke beslissing nodig hebben</li>
-                <li><strong>Projects</strong> - Kanban-stijl project pipeline</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Backend Notice */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+          {/* Supabase Connection Status */}
+          <div className="bg-green-50 border border-green-200 rounded-xl p-5">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <Zap className="w-4 h-4 text-amber-600" />
+              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                <Database className="w-4 h-4 text-green-600" />
               </div>
               <div>
-                <h4 className="font-semibold text-amber-900 mb-1">Backend Configuratie Vereist</h4>
-                <p className="text-sm text-amber-800">
-                  Dit platform vereist een geconfigureerde Supabase backend met de juiste tabellen en API keys. 
-                  Zie de README en .env.example voor setup instructies.
+                <h4 className="font-semibold text-green-900 mb-1">Supabase Verbonden</h4>
+                <p className="text-sm text-green-800">
+                  Database connectie actief. Alle data wordt gesynchroniseerd met de Supabase backend.
                 </p>
               </div>
             </div>
