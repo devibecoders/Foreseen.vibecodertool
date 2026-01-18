@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Navigation from '@/components/Navigation'
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Plus, Archive, Eye, X, Sparkles, Briefcase, Edit3, Upload, FileText } from 'lucide-react'
@@ -18,10 +18,12 @@ interface Project {
   status: 'Prospect' | 'Offer Sent' | 'Setup' | 'In Progress' | 'Review' | 'Done'
   color_theme: string
   quote_amount?: number
-  briefing_file?: File | null // Hand Over Document - Briefing PDF
+  briefing_file?: File | null // Hand Over Document - Briefing PDF (local only)
   briefing_filename?: string
-  step_plan_file?: File | null // Hand Over Document - Stappenplan PDF
+  briefing_url?: string // Supabase Storage URL
+  step_plan_file?: File | null // Hand Over Document - Stappenplan PDF (local only)
   step_plan_filename?: string
+  step_plan_url?: string // Supabase Storage URL
   active_playbook_id?: string
   is_archived: boolean
   created_at: string
@@ -62,14 +64,16 @@ export default function ProjectsPage() {
     quote_amount: '',
     briefing_file: null as File | null,
     briefing_filename: '',
+    briefing_url: '',
     step_plan_file: null as File | null,
-    step_plan_filename: ''
+    step_plan_filename: '',
+    step_plan_url: ''
   })
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts
+        distance: 5, // Reduced from 8px for more responsive dragging
       },
     })
   )
@@ -147,6 +151,40 @@ export default function ProjectsPage() {
     const typeConfig = PROJECT_TYPES.find(t => t.value === newProject.type)
 
     try {
+      // Upload PDFs to Supabase Storage first
+      let briefingUrl = ''
+      let stepPlanUrl = ''
+
+      if (newProject.briefing_file) {
+        const formData = new FormData()
+        formData.append('file', newProject.briefing_file)
+        formData.append('fileType', 'briefing')
+
+        const uploadRes = await fetch('/api/projects/upload', {
+          method: 'POST',
+          body: formData
+        })
+        const uploadData = await uploadRes.json()
+        if (uploadData.success) {
+          briefingUrl = uploadData.url
+        }
+      }
+
+      if (newProject.step_plan_file) {
+        const formData = new FormData()
+        formData.append('file', newProject.step_plan_file)
+        formData.append('fileType', 'step_plan')
+
+        const uploadRes = await fetch('/api/projects/upload', {
+          method: 'POST',
+          body: formData
+        })
+        const uploadData = await uploadRes.json()
+        if (uploadData.success) {
+          stepPlanUrl = uploadData.url
+        }
+      }
+
       const response = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,7 +196,9 @@ export default function ProjectsPage() {
           status: newProject.status,
           quote_amount: newProject.quote_amount ? parseFloat(newProject.quote_amount) : null,
           briefing_filename: newProject.briefing_filename || null,
+          briefing_url: briefingUrl || null,
           step_plan_filename: newProject.step_plan_filename || null,
+          step_plan_url: stepPlanUrl || null,
           color_theme: typeConfig?.color || 'gray'
         })
       })
@@ -181,8 +221,10 @@ export default function ProjectsPage() {
       quote_amount: '',
       briefing_file: null,
       briefing_filename: '',
+      briefing_url: '',
       step_plan_file: null,
-      step_plan_filename: ''
+      step_plan_filename: '',
+      step_plan_url: ''
     })
   }
 
@@ -195,6 +237,42 @@ export default function ProjectsPage() {
     if (!editingProject) return
 
     try {
+      // Upload new PDFs if they were changed
+      let briefingUrl = editingProject.briefing_url || ''
+      let stepPlanUrl = editingProject.step_plan_url || ''
+
+      if (editingProject.briefing_file) {
+        const formData = new FormData()
+        formData.append('file', editingProject.briefing_file)
+        formData.append('fileType', 'briefing')
+        formData.append('projectId', editingProject.id)
+
+        const uploadRes = await fetch('/api/projects/upload', {
+          method: 'POST',
+          body: formData
+        })
+        const uploadData = await uploadRes.json()
+        if (uploadData.success) {
+          briefingUrl = uploadData.url
+        }
+      }
+
+      if (editingProject.step_plan_file) {
+        const formData = new FormData()
+        formData.append('file', editingProject.step_plan_file)
+        formData.append('fileType', 'step_plan')
+        formData.append('projectId', editingProject.id)
+
+        const uploadRes = await fetch('/api/projects/upload', {
+          method: 'POST',
+          body: formData
+        })
+        const uploadData = await uploadRes.json()
+        if (uploadData.success) {
+          stepPlanUrl = uploadData.url
+        }
+      }
+
       const response = await fetch('/api/projects', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -207,7 +285,9 @@ export default function ProjectsPage() {
           status: editingProject.status,
           quote_amount: editingProject.quote_amount,
           briefing_filename: editingProject.briefing_filename,
-          step_plan_filename: editingProject.step_plan_filename
+          briefing_url: briefingUrl || null,
+          step_plan_filename: editingProject.step_plan_filename,
+          step_plan_url: stepPlanUrl || null
         })
       })
 
@@ -291,7 +371,7 @@ export default function ProjectsPage() {
         ) : (
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCorners}
+            collisionDetection={closestCenter}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
@@ -414,57 +494,43 @@ export default function ProjectsPage() {
                   </div>
                 )}
 
-                {(selectedProject.briefing_filename || selectedProject.step_plan_filename) && (
+                {(selectedProject.briefing_url || selectedProject.step_plan_url) && (
                   <div className="pt-4 border-t border-gray-200">
                     <h3 className="text-base font-semibold text-gray-900 mb-3">📄 Hand Over Document</h3>
 
-                    {selectedProject.briefing_filename && (
+                    {selectedProject.briefing_url && (
                       <div className="mb-4">
                         <p className="text-sm font-medium text-gray-500 mb-2">Briefing</p>
-                        <button
-                          onClick={() => {
-                            if (selectedProject.briefing_file) {
-                              const url = URL.createObjectURL(selectedProject.briefing_file)
-                              const a = document.createElement('a')
-                              a.href = url
-                              a.download = selectedProject.briefing_filename || 'briefing.pdf'
-                              a.click()
-                              URL.revokeObjectURL(url)
-                            }
-                          }}
+                        <a
+                          href={selectedProject.briefing_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between gap-3 hover:bg-blue-100 transition-colors cursor-pointer"
                         >
                           <div className="flex items-center gap-3">
                             <FileText className="w-5 h-5 text-blue-600" />
-                            <span className="text-sm font-medium text-gray-900">{selectedProject.briefing_filename}</span>
+                            <span className="text-sm font-medium text-gray-900">{selectedProject.briefing_filename || 'briefing.pdf'}</span>
                           </div>
-                          <span className="text-xs text-blue-600 font-medium">Download</span>
-                        </button>
+                          <span className="text-xs text-blue-600 font-medium">Openen</span>
+                        </a>
                       </div>
                     )}
 
-                    {selectedProject.step_plan_filename && (
+                    {selectedProject.step_plan_url && (
                       <div>
                         <p className="text-sm font-medium text-gray-500 mb-2">Stappenplan</p>
-                        <button
-                          onClick={() => {
-                            if (selectedProject.step_plan_file) {
-                              const url = URL.createObjectURL(selectedProject.step_plan_file)
-                              const a = document.createElement('a')
-                              a.href = url
-                              a.download = selectedProject.step_plan_filename || 'stappenplan.pdf'
-                              a.click()
-                              URL.revokeObjectURL(url)
-                            }
-                          }}
+                        <a
+                          href={selectedProject.step_plan_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="w-full bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between gap-3 hover:bg-green-100 transition-colors cursor-pointer"
                         >
                           <div className="flex items-center gap-3">
                             <FileText className="w-5 h-5 text-green-600" />
-                            <span className="text-sm font-medium text-gray-900">{selectedProject.step_plan_filename}</span>
+                            <span className="text-sm font-medium text-gray-900">{selectedProject.step_plan_filename || 'stappenplan.pdf'}</span>
                           </div>
-                          <span className="text-xs text-green-600 font-medium">Download</span>
-                        </button>
+                          <span className="text-xs text-green-600 font-medium">Openen</span>
+                        </a>
                       </div>
                     )}
                   </div>
@@ -514,8 +580,10 @@ function DroppableColumn({ column, projects, onProjectClick, onArchive }: {
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-80 border-2 rounded-lg ${column.color} ${isOver ? 'ring-2 ring-slate-900 ring-offset-2' : ''
-        } transition-all`}
+      className={`flex-shrink-0 w-80 border-2 rounded-lg ${column.color} ${isOver
+        ? 'ring-4 ring-slate-900 ring-offset-2 scale-[1.02] shadow-xl bg-slate-50/50'
+        : ''
+        } transition-all duration-200 ease-in-out`}
     >
       <div className="p-4 border-b border-gray-200 bg-white/50">
         <h3 className="font-semibold text-gray-900 text-sm mb-0.5">{column.label}</h3>
@@ -523,7 +591,9 @@ function DroppableColumn({ column, projects, onProjectClick, onArchive }: {
         <span className="text-xs text-gray-500 mt-2 block">{projects.length} project{projects.length !== 1 ? 'en' : ''}</span>
       </div>
 
-      <div className="p-3 space-y-3 min-h-[200px]">
+      {/* Larger droppable area with full height */}
+      <div className={`p-3 space-y-3 min-h-[400px] ${isOver ? 'bg-slate-100/30' : ''
+        } transition-colors duration-200`}>
         {projects.map(project => (
           <DraggableProjectCard
             key={project.id}
@@ -532,6 +602,13 @@ function DroppableColumn({ column, projects, onProjectClick, onArchive }: {
             onArchive={onArchive}
           />
         ))}
+
+        {/* Empty state hint when dragging */}
+        {isOver && projects.length === 0 && (
+          <div className="flex items-center justify-center h-32 border-2 border-dashed border-slate-300 rounded-lg bg-white/50">
+            <p className="text-sm text-gray-500 font-medium">Laat hier los</p>
+          </div>
+        )}
       </div>
     </div>
   )

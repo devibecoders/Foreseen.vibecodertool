@@ -52,6 +52,7 @@ export default function Home() {
   const [view, setView] = useState<'scans' | 'dashboard'>('scans')
   const [category, setCategory] = useState('ALL')
   const [minImpactScore, setMinImpactScore] = useState(0)
+  const [showScanConfirmModal, setShowScanConfirmModal] = useState(false)
 
   const fetchScans = async () => {
     setLoading(true)
@@ -84,7 +85,7 @@ export default function Home() {
   const deleteScan = async (scanId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!confirm('Delete this scan?')) return
-    
+
     try {
       await fetch(`/api/scans/${scanId}`, { method: 'DELETE' })
       fetchScans()
@@ -102,9 +103,8 @@ export default function Home() {
     fetchScans()
   }, [])
 
-  const runWeeklyScan = async () => {
-    if (!confirm('Start new scan? This may take a few minutes.')) return
-    
+  const startScan = async () => {
+    setShowScanConfirmModal(false)
     setRunning(true)
     try {
       const response = await fetch('/api/run', {
@@ -112,9 +112,9 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ daysBack: 7 })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
         alert(`Scan complete!\n\nFetched: ${data.itemsFetched}\nNew: ${data.itemsNew}\nAnalyzed: ${data.itemsAnalyzed}`)
         fetchScans()
@@ -157,7 +157,7 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       <Navigation />
-      
+
       <main className="max-w-7xl mx-auto px-6 py-8">
         {view === 'scans' ? (
           <div className="space-y-6">
@@ -173,7 +173,7 @@ export default function Home() {
                 </div>
               </div>
               <button
-                onClick={runWeeklyScan}
+                onClick={() => setShowScanConfirmModal(true)}
                 disabled={running}
                 className="px-5 py-2.5 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md flex items-center gap-2"
               >
@@ -217,15 +217,14 @@ export default function Home() {
                           {format(new Date(scan.startedAt), 'MMM d, yyyy')}
                         </p>
                       </div>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        scan.status === 'completed' ? 'bg-success-100 text-success-700 border border-success-200' :
-                        scan.status === 'running' ? 'bg-warning-100 text-warning-700 border border-warning-200' :
-                        'bg-danger-100 text-danger-700 border border-danger-200'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${scan.status === 'completed' ? 'bg-success-100 text-success-700 border border-success-200' :
+                          scan.status === 'running' ? 'bg-warning-100 text-warning-700 border border-warning-200' :
+                            'bg-danger-100 text-danger-700 border border-danger-200'
+                        }`}>
                         {scan.status}
                       </span>
                     </div>
-                    
+
                     <div className="space-y-3 mb-4">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-500">Articles</span>
@@ -354,13 +353,12 @@ export default function Home() {
                           <div className="flex items-center gap-3 text-xs text-gray-500">
                             <span className="font-medium">{article.source}</span>
                             <span>·</span>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold ${
-                              article.analysis!.impactScore >= 70
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold ${article.analysis!.impactScore >= 70
                                 ? 'bg-success-100 text-success-700'
                                 : article.analysis!.impactScore >= 50
-                                ? 'bg-warning-100 text-warning-700'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}>
+                                  ? 'bg-warning-100 text-warning-700'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}>
                               {article.analysis?.impactScore}/100
                             </span>
                           </div>
@@ -381,7 +379,7 @@ export default function Home() {
                 </div>
                 <div className="p-5 space-y-4">
                   {Object.entries(categoryDistribution)
-                    .sort(([,a], [,b]) => b - a)
+                    .sort(([, a], [, b]) => b - a)
                     .slice(0, 6)
                     .map(([cat, count]) => {
                       const percentage = Math.round((count / filteredArticles.length) * 100)
@@ -460,22 +458,21 @@ export default function Home() {
                     <div className="flex items-start justify-between mb-3">
                       <span className="text-xs font-medium text-gray-500">{article.source}</span>
                       {article.analysis && (
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${
-                          article.analysis.impactScore >= 70
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${article.analysis.impactScore >= 70
                             ? 'bg-success-100 text-success-700 border border-success-200'
                             : article.analysis.impactScore >= 50
-                            ? 'bg-warning-100 text-warning-700 border border-warning-200'
-                            : 'bg-gray-100 text-gray-700 border border-gray-200'
-                        }`}>
+                              ? 'bg-warning-100 text-warning-700 border border-warning-200'
+                              : 'bg-gray-100 text-gray-700 border border-gray-200'
+                          }`}>
                           {article.analysis.impactScore}
                         </span>
                       )}
                     </div>
-                    
+
                     <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-slate-800">
                       {article.title}
                     </h3>
-                    
+
                     <p className="text-xs text-gray-500 mb-3">
                       {format(new Date(article.publishedAt), 'MMM d, yyyy')}
                     </p>
@@ -551,13 +548,12 @@ export default function Home() {
                     <TrendingUp className="w-4 h-4 text-slate-600" />
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Impact Score</h3>
                   </div>
-                  <p className={`text-4xl font-bold ${
-                    selectedArticle.analysis.impactScore >= 70
+                  <p className={`text-4xl font-bold ${selectedArticle.analysis.impactScore >= 70
                       ? 'text-success-600'
                       : selectedArticle.analysis.impactScore >= 50
-                      ? 'text-warning-600'
-                      : 'text-gray-600'
-                  }`}>
+                        ? 'text-warning-600'
+                        : 'text-gray-600'
+                    }`}>
                     {selectedArticle.analysis.impactScore}
                   </p>
                 </div>
@@ -602,7 +598,7 @@ export default function Home() {
               )}
 
               {/* Decision Assessment Panel */}
-              <DecisionAssessmentPanel 
+              <DecisionAssessmentPanel
                 article={selectedArticle}
                 onSave={(decision) => {
                   console.log('Decision saved:', decision)
@@ -626,6 +622,49 @@ export default function Home() {
                   <p className="text-sm text-gray-700">{selectedArticle.analysis.vibecodersAngle}</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scan Confirmation Modal */}
+      {showScanConfirmModal && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => setShowScanConfirmModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-brand-50 flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-brand-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Start New Scan</h3>
+                <p className="text-sm text-gray-500">This may take a few minutes</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-6">
+              The scan will fetch new articles from all configured sources and analyze them using AI. This process typically takes 2-5 minutes depending on the number of new articles.
+            </p>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowScanConfirmModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={startScan}
+                className="px-5 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                Start Scan
+              </button>
             </div>
           </div>
         </div>

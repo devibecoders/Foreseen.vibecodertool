@@ -64,8 +64,8 @@ export async function POST(request: Request) {
                 status: body.status || 'Prospect',
                 color_theme: body.color_theme || 'gray',
                 quote_amount: body.quote_amount || null,
-                briefing_filename: body.briefing_filename || null,
-                step_plan_filename: body.step_plan_filename || null,
+                briefing: body.briefing_filename || body.briefing || null,
+                step_plan: body.step_plan_filename || body.step_plan || null,
                 is_archived: false
             }])
             .select()
@@ -96,9 +96,19 @@ export async function PATCH(request: Request) {
             return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
         }
 
-        // Remove undefined values
+        // Map frontend field names to database column names
+        const fieldMapping: Record<string, string> = {
+            briefing_filename: 'briefing',
+            step_plan_filename: 'step_plan',
+            briefing_url: 'briefing_url',
+            step_plan_url: 'step_plan_url'
+        }
+
+        // Remove undefined values and map field names
         const cleanUpdates = Object.fromEntries(
-            Object.entries(updates).filter(([_, v]) => v !== undefined)
+            Object.entries(updates)
+                .filter(([_, v]) => v !== undefined)
+                .map(([key, value]) => [fieldMapping[key] || key, value])
         )
 
         const { data, error } = await supabase
