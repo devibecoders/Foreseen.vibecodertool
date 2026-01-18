@@ -162,7 +162,7 @@ export class WeeklySynthesisService {
       take: maxArticles
     })
 
-    return articles.filter(a => a.analysis !== null)
+    return articles.filter((a: { analysis: unknown }) => a.analysis !== null)
   }
 
   private prepareContext(articles: any[], startDate: Date, endDate: Date): string {

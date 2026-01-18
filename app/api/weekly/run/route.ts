@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Link articles to brief
-      const articleLinks = articles.slice(0, 40).map(article => ({
+      const articleLinks = articles.slice(0, 40).map((article: { id: string; analysis: { impactScore: number } | null }) => ({
         brief_id: brief.id,
         article_id: article.id,
         used_reason: `Impact: ${article.analysis?.impactScore || 0}`
