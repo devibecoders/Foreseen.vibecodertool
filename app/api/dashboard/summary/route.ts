@@ -23,44 +23,57 @@ export async function GET() {
         const userId = 'default-user'
         const weekLabel = getCurrentWeekLabel()
 
-        // 1. Latest COMPLETED scan (for accurate unreviewed count)
-        const { data: scans } = await supabase
+        // 1. Latest absolute scan (to show running/failed status on dashboard)
+        const { data: allScans } = await supabase
             .from('scans')
             .select('id, started_at, completed_at, items_fetched, items_analyzed, status')
+            .order('started_at', { ascending: false })
+            .limit(1)
+
+        const latestScan = allScans?.[0] || null
+
+        // 1b. Latest COMPLETED scan (for accurate unreviewed counts in step 2)
+        const { data: completedScans } = await supabase
+            .from('scans')
+            .select('id')
             .eq('status', 'completed')
             .order('started_at', { ascending: false })
             .limit(1)
 
-        const latestScan = scans?.[0] || null
+        const latestCompletedScan = completedScans?.[0] || null
+        console.log(`[Dashboard] Latest completed scan: ${latestCompletedScan?.id || 'None'}`)
+
 
         // 2. Unreviewed articles (articles without decisions in latest scan)
         let unreviewedCount = 0
         let unreviewedTop: any[] = []
 
-        if (latestScan) {
-            // Get articles from latest scan
+        if (latestCompletedScan) {
+            console.log(`[Dashboard] Found latest completed scan for unreviewed counts: ${latestCompletedScan.id}`)
+            // Get articles from latest completed scan
             const { data: articles } = await supabase
                 .from('articles')
                 .select(`
           id, title, url, source, published_at,
           analyses(id, summary, categories, impact_score)
         `)
-                .eq('scan_id', latestScan.id)
+                .eq('scan_id', latestCompletedScan.id)
                 .order('published_at', { ascending: false })
+
+            console.log(`[Dashboard] Total articles in completed scan ${latestCompletedScan.id}: ${articles?.length || 0}`)
 
             // Get decisions for this scan
             const { data: decisions } = await supabase
                 .from('decision_assessments')
                 .select('article_id')
-                .eq('scan_id', latestScan.id)
+                .eq('scan_id', latestCompletedScan.id)
+
+            console.log(`[Dashboard] Decisions found for scan ${latestCompletedScan.id}: ${decisions?.length || 0}`)
 
             const decidedArticleIds = new Set((decisions || []).map(d => d.article_id))
 
             // Filter unreviewed
-            const unreviewed = (articles || []).filter(a =>
-                !decidedArticleIds.has(a.id) && a.analyses && a.analyses.length > 0
-            )
-
+            const unreviewed = (articles || []).filter(a => !decidedArticleIds.has(a.id))
             unreviewedCount = unreviewed.length
             unreviewedTop = unreviewed.slice(0, 5).map(a => ({
                 id: a.id,
@@ -70,8 +83,9 @@ export async function GET() {
                 score: a.analyses?.[0]?.impact_score || 0,
                 category: a.analyses?.[0]?.categories?.split(',')[0] || 'OTHER'
             }))
+        } else {
+            console.log('[Dashboard] No completed scans found for unreviewed counts')
         }
-
         // 3. Latest brief
         const { data: briefs } = await supabase
             .from('weekly_briefs')
@@ -106,20 +120,26 @@ export async function GET() {
         }
 
         // 6. Projects (exclude archived, matching Projects page API)
-        const { data: projects } = await supabase
+        // Project status values: 'Prospect', 'Offer Sent', 'Setup', 'In Progress', 'Review', 'Done'
+        const { data: projects, error: projectsError } = await supabase
             .from('projects')
-            .select('id, title, status, created_at')
+            .select('id, name, status, created_at')
             .eq('is_archived', false)
             .order('created_at', { ascending: false })
-            .limit(10)
+            .limit(20)
 
-        const activeCount = (projects || []).filter(p => p.status?.toLowerCase() !== 'completed').length
-        const completedThisMonth = (projects || []).filter(p => {
-            if (p.status?.toLowerCase() !== 'completed') return false
-            const created = new Date(p.created_at)
-            const now = new Date()
-            return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
-        }).length
+        console.log('[Dashboard] Projects query result:', {
+            count: projects?.length,
+            error: projectsError?.message,
+            statuses: projects?.map(p => p.status)
+        })
+
+        // Active = Setup, In Progress, Review (actively being worked on)
+        const ACTIVE_STATUSES = ['Setup', 'In Progress', 'Review']
+        const activeCount = (projects || []).filter(p => ACTIVE_STATUSES.includes(p.status)).length
+
+        // Completed = Done
+        const completedCount = (projects || []).filter(p => p.status === 'Done').length
 
         // 7. Current week note
         const { data: notes } = await supabase
@@ -162,16 +182,18 @@ export async function GET() {
             vibecodeCore,
             projects: {
                 activeCount,
-                completedThisMonth,
+                completedCount,
                 recent: (projects || []).slice(0, 3).map(p => ({
                     id: p.id,
-                    title: p.title,
+                    name: p.name,
                     status: p.status
                 }))
             },
             note,
             tasks: tasks || [],
             weekLabel
+        }, {
+            headers: { 'Cache-Control': 'no-store, max-age=0' }
         })
     } catch (error) {
         console.error('Dashboard summary error:', error)

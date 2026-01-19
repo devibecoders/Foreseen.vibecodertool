@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import Navigation from '@/components/Navigation'
+import ConfirmModal from '@/components/ConfirmModal'
 import {
     BarChart3, FileText, CheckSquare, Folder, Sparkles, Play,
     Clock, AlertCircle, ChevronRight, Lightbulb, Plus, Trash2,
@@ -43,8 +44,8 @@ interface DashboardData {
     }
     projects: {
         activeCount: number
-        completedThisMonth: number
-        recent: Array<{ id: string; title: string; status: string }>
+        completedCount: number
+        recent: Array<{ id: string; name: string; status: string }>
     }
     note: {
         week_label: string
@@ -67,23 +68,45 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
     const [noteContent, setNoteContent] = useState('')
     const [noteSaving, setNoteSaving] = useState(false)
+    const isNotesDirty = useRef(false) // Added isNotesDirty ref
     const [newTask, setNewTask] = useState({ assignee_name: '', title: '', due_date: '' })
     const [taskFilter, setTaskFilter] = useState<'all' | 'todo' | 'doing' | 'done'>('all')
     const [runningAction, setRunningAction] = useState<string | null>(null)
+    const [showDeleteTaskModal, setShowDeleteTaskModal] = useState(false)
+    const [taskToDeleteId, setTaskToDeleteId] = useState<string | null>(null)
 
     useEffect(() => {
         fetchDashboard()
     }, [])
 
+    // Polling for running scan
+    useEffect(() => {
+        let interval: NodeJS.Timeout
+        if (data?.latestScan?.status === 'running') {
+            console.log('[Dashboard] Scan running, starting poll...')
+            interval = setInterval(() => {
+                fetchDashboard()
+            }, 5000)
+        }
+        return () => {
+            if (interval) clearInterval(interval)
+        }
+    }, [data?.latestScan?.status])
+
     const fetchDashboard = async () => {
         setLoading(true)
+        console.log('[Dashboard] Fetching summary...')
         try {
-            const response = await fetch('/api/dashboard/summary')
+            const response = await fetch(`/api/dashboard/summary?t=${Date.now()}`)
             const result = await response.json()
+            console.log('[Dashboard] Summary result:', result)
             setData(result)
-            setNoteContent(result.note?.content || '')
+            // Only set note content on initial load to avoid overwriting user typing during background refreshes
+            if (loading || !isNotesDirty.current) {
+                setNoteContent(result.note?.content || '')
+            }
         } catch (error) {
-            console.error('Error fetching dashboard:', error)
+            console.error('[Dashboard] Error fetching dashboard:', error)
         } finally {
             setLoading(false)
         }
@@ -93,14 +116,29 @@ export default function DashboardPage() {
     const saveNote = useCallback(async (content: string) => {
         if (!data) return
         setNoteSaving(true)
+        console.log('[Dashboard] Saving note...', { week: data.weekLabel, length: content.length })
         try {
-            await fetch('/api/dashboard/note', {
+            const res = await fetch('/api/dashboard/note', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ week_label: data.weekLabel, content })
             })
+            const result = await res.json()
+            console.log('[Dashboard] Note save result:', result)
+
+            // Update local state to match saved content to avoid re-saving the same data
+            if (result.success && result.note) {
+                isNotesDirty.current = false // reset dirty flag on success
+                setData(prev => prev ? {
+                    ...prev,
+                    note: {
+                        ...prev.note,
+                        content: result.note.content
+                    }
+                } : null)
+            }
         } catch (error) {
-            console.error('Error saving note:', error)
+            console.error('[Dashboard] Error saving note:', error)
         } finally {
             setNoteSaving(false)
         }
@@ -108,17 +146,18 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (noteContent !== data?.note?.content) {
+            if (isNotesDirty.current && noteContent !== data?.note?.content) {
                 saveNote(noteContent)
             }
-        }, 1000)
+        }, 1200) // Slightly longer debounce for safer autosave
         return () => clearTimeout(timer)
     }, [noteContent, data?.note?.content, saveNote])
 
     const addTask = async () => {
         if (!newTask.assignee_name || !newTask.title) return
+        console.log('[Dashboard] Adding task...', newTask)
         try {
-            await fetch('/api/dashboard/tasks', {
+            const res = await fetch('/api/dashboard/tasks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -127,10 +166,21 @@ export default function DashboardPage() {
                     due_date: newTask.due_date || null
                 })
             })
+            const result = await res.json()
+            console.log('[Dashboard] Add task result:', result)
+
+            if (result.success && result.task) {
+                // Optimistic UI update with real data
+                setData(prev => prev ? {
+                    ...prev,
+                    tasks: [result.task, ...(prev.tasks || [])]
+                } : null)
+            }
+
             setNewTask({ assignee_name: '', title: '', due_date: '' })
-            fetchDashboard()
+            // Optional: call fetchDashboard() as fallback but we have optimistic update now
         } catch (error) {
-            console.error('Error adding task:', error)
+            console.error('[Dashboard] Error adding task:', error)
         }
     }
 
@@ -147,13 +197,27 @@ export default function DashboardPage() {
         }
     }
 
-    const deleteTask = async (taskId: string) => {
-        if (!confirm('Delete this task?')) return
+    const deleteTask = async (id: string) => {
+        setTaskToDeleteId(id)
+        setShowDeleteTaskModal(true)
+    }
+
+    const confirmDeleteTask = async () => {
+        if (!taskToDeleteId) return
         try {
-            await fetch(`/api/dashboard/tasks?id=${taskId}`, { method: 'DELETE' })
-            fetchDashboard()
+            await fetch(`/api/dashboard/tasks?id=${taskToDeleteId}`, {
+                method: 'DELETE'
+            })
+            // Optimistic update
+            setData(prev => prev ? {
+                ...prev,
+                tasks: (prev.tasks || []).filter(t => t.id !== taskToDeleteId)
+            } : null)
         } catch (error) {
             console.error('Error deleting task:', error)
+        } finally {
+            setShowDeleteTaskModal(false)
+            setTaskToDeleteId(null)
         }
     }
 
@@ -179,6 +243,7 @@ export default function DashboardPage() {
 
     const handleRunScan = async () => {
         setRunningAction('scan')
+        console.log('[Dashboard] Triggering scan run...')
         try {
             const res = await fetch('/api/run', {
                 method: 'POST',
@@ -186,12 +251,15 @@ export default function DashboardPage() {
                 body: JSON.stringify({ daysBack: 7 })
             })
             const result = await res.json()
+            console.log('[Dashboard] Scan run result:', result)
             if (result.success) {
                 alert(`Scan complete! ${result.itemsNew} new, ${result.itemsAnalyzed} analyzed.`)
                 fetchDashboard()
             } else {
                 alert(`Error: ${result.error}`)
             }
+        } catch (error) {
+            console.error('[Dashboard] Scan run error:', error)
         } finally {
             setRunningAction(null)
         }
@@ -361,7 +429,7 @@ export default function DashboardPage() {
                                     <p className="text-xs text-gray-500">Active</p>
                                 </div>
                                 <div className="text-center p-3 bg-slate-50 rounded-lg">
-                                    <p className="text-2xl font-bold text-green-600">{data?.projects?.completedThisMonth || 0}</p>
+                                    <p className="text-2xl font-bold text-green-600">{data?.projects?.completedCount || 0}</p>
                                     <p className="text-xs text-gray-500">Completed</p>
                                 </div>
                             </div>
@@ -371,9 +439,9 @@ export default function DashboardPage() {
                                 <div className="space-y-2">
                                     {data?.projects?.recent?.map(p => (
                                         <div key={p.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                                            <span className="text-sm text-gray-700 truncate">{p.title}</span>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                p.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                            <span className="text-sm text-gray-700 truncate">{p.name}</span>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'Done' ? 'bg-green-100 text-green-700' :
+                                                p.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
                                                     'bg-gray-100 text-gray-700'
                                                 }`}>
                                                 {p.status}
@@ -458,33 +526,40 @@ export default function DashboardPage() {
                         <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
                             {(data?.unreviewedTop?.length ?? 0) > 0 ? (
                                 data?.unreviewedTop?.map(article => (
-                                    <div key={article.id} className="p-4 hover:bg-slate-50 transition-all">
-                                        <div className="flex items-start justify-between gap-3 mb-2">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 line-clamp-2">{article.title}</p>
-                                                <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                                    <span>{article.source}</span>
-                                                    <span>·</span>
-                                                    <span className="px-1.5 py-0.5 rounded bg-slate-100">{article.category}</span>
+                                    <div key={article.id} className="group p-4 hover:bg-slate-50 transition-all">
+                                        <a
+                                            href={article.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block mb-2 hover:opacity-80 transition-opacity"
+                                        >
+                                            <div className="flex items-start justify-between gap-3 mb-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-semibold text-gray-900 line-clamp-2 group-hover:text-slate-800 transition-colors">{article.title}</p>
+                                                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                                        <span className="font-bold uppercase tracking-widest text-[10px]">{article.source}</span>
+                                                        <span>·</span>
+                                                        <span className="px-1.5 py-0.5 rounded bg-slate-100 font-medium">{article.category}</span>
+                                                    </div>
                                                 </div>
+                                                <span className={`flex-shrink-0 px-2 py-1 rounded-lg text-xs font-black ${article.score >= 70 ? 'bg-green-100 text-green-700' :
+                                                    article.score >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                                                        'bg-gray-100 text-gray-700'
+                                                    }`}>
+                                                    {article.score}
+                                                </span>
                                             </div>
-                                            <span className={`flex-shrink-0 px-2 py-1 rounded-lg text-xs font-bold ${article.score >= 70 ? 'bg-green-100 text-green-700' :
-                                                article.score >= 50 ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-gray-100 text-gray-700'
-                                                }`}>
-                                                {article.score}
-                                            </span>
-                                        </div>
+                                        </a>
                                         {/* Quick Decision Buttons */}
                                         <div className="flex flex-wrap gap-1">
                                             {['ignore', 'monitor', 'experiment', 'integrate'].map(action => (
                                                 <button
                                                     key={action}
                                                     onClick={() => handleQuickDecision(article.id, action)}
-                                                    className={`px-2 py-1 text-xs font-medium rounded transition-all ${action === 'ignore' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' :
-                                                        action === 'monitor' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' :
-                                                            action === 'experiment' ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100' :
-                                                                'bg-green-50 text-green-600 hover:bg-green-100'
+                                                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all ${action === 'ignore' ? 'bg-white text-gray-400 border-gray-100 hover:border-gray-200 hover:text-gray-600' :
+                                                        action === 'monitor' ? 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100' :
+                                                            action === 'experiment' ? 'bg-yellow-50 text-yellow-600 border-yellow-100 hover:bg-yellow-100' :
+                                                                'bg-green-50 text-green-600 border-green-100 hover:bg-green-100'
                                                         }`}
                                                 >
                                                     {action}
@@ -536,7 +611,10 @@ export default function DashboardPage() {
                         <div className="p-4">
                             <textarea
                                 value={noteContent}
-                                onChange={(e) => setNoteContent(e.target.value)}
+                                onChange={(e) => {
+                                    setNoteContent(e.target.value)
+                                    isNotesDirty.current = true
+                                }}
                                 placeholder="Write your weekly notes here... (auto-saves)"
                                 rows={8}
                                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none font-mono"
@@ -658,6 +736,17 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </main>
+            <ConfirmModal
+                isOpen={showDeleteTaskModal}
+                title="Delete Task?"
+                message="Are you sure you want to remove this task from the list?"
+                confirmText="Delete"
+                onConfirm={confirmDeleteTask}
+                onCancel={() => {
+                    setShowDeleteTaskModal(false)
+                    setTaskToDeleteId(null)
+                }}
+            />
         </div>
     )
 }

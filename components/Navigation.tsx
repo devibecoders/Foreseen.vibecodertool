@@ -31,6 +31,7 @@ export default function Navigation() {
 
   const isDashboardActive = pathname === '/' || pathname === '/dashboard'
   const isResearchActive = pathname?.startsWith('/research') ||
+    pathname === '/research/scan' ||
     pathname === '/weekly-briefs' ||
     pathname?.startsWith('/decisions')
 
@@ -89,8 +90,8 @@ export default function Navigation() {
                     Research Hub
                   </Link>
                   <Link
-                    href="/scans"
-                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname === '/scans' ? 'text-slate-900 font-medium' : 'text-gray-700'
+                    href="/research/scan"
+                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname === '/research/scan' ? 'text-slate-900 font-medium' : 'text-gray-700'
                       }`}
                   >
                     <BarChart3 className="w-4 h-4" />

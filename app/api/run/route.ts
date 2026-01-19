@@ -26,8 +26,11 @@ export async function POST(request: Request) {
     .single()
 
   if (scanError || !scan) {
+    console.error('[Scan] Insertion failed:', scanError)
     return NextResponse.json({ success: false, error: 'Failed to create scan' }, { status: 500 })
   }
+
+  console.log(`[Scan ${scan.id}] Created record. Status: running`)
 
   try {
     const body = await request.json().catch(() => ({}))
@@ -125,7 +128,7 @@ export async function POST(request: Request) {
     console.log('[5/5] Complete!')
 
     // Update scan as completed
-    await supabase
+    const { error: updateError } = await supabase
       .from('scans')
       .update({
         status: 'completed',
@@ -134,6 +137,12 @@ export async function POST(request: Request) {
         items_analyzed: analyzed,
       })
       .eq('id', scan.id)
+
+    if (updateError) {
+      console.error(`[Scan ${scan.id}] Failed to mark as completed:`, updateError)
+    } else {
+      console.log(`[Scan ${scan.id}] Status transition: running -> completed. Items: ${ingestResult.itemsFetched} fetched, ${analyzed} analyzed`)
+    }
 
     return NextResponse.json({
       success: true,
