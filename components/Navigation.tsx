@@ -1,26 +1,23 @@
 /**
  * Navigation
  *
- * Hoofdnavigatiebalk. Wordt bovenaan alle pagina's weergegeven.
- * Bevat een sticky header met blur effect en responsive nav links.
- *
- * Links:
- * - Dashboard (/) - AI nieuws aggregator
- * - Wekelijkse Synthese - Wekelijkse briefings
- * - Vibecode Core - Kennisbank
- * - Beslissingen - Beslissingen inbox
- * - Projecten - Project management
- *
- * @component
+ * Hoofdnavigatiebalk met Research dropdown menu.
  */
 'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
+import { ChevronDown, BarChart3, FileText, CheckSquare } from 'lucide-react'
 
 export default function Navigation() {
   const pathname = usePathname()
-  const isActive = (path: string) => pathname === path
+  const [showResearchMenu, setShowResearchMenu] = useState(false)
+
+  const isResearchActive = pathname?.startsWith('/research') ||
+    pathname === '/' ||
+    pathname === '/weekly-briefs' ||
+    pathname?.startsWith('/decisions')
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-md">
@@ -36,24 +33,54 @@ export default function Navigation() {
           </Link>
 
           <nav className="flex items-center gap-1">
-            <Link
-              href="/"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/'
-                ? 'bg-slate-900 text-white'
-                : 'text-gray-700 hover:bg-slate-50'
-                }`}
+            {/* Research Hub with dropdown */}
+            <div
+              className="relative"
+              onMouseEnter={() => setShowResearchMenu(true)}
+              onMouseLeave={() => setShowResearchMenu(false)}
             >
-              Dashboard
-            </Link>
-            <Link
-              href="/weekly-briefs"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/weekly-briefs'
-                ? 'bg-slate-900 text-white'
-                : 'text-gray-700 hover:bg-slate-50'
-                }`}
-            >
-              Wekelijkse Synthese
-            </Link>
+              <Link
+                href="/research"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${isResearchActive
+                    ? 'bg-slate-900 text-white'
+                    : 'text-gray-700 hover:bg-slate-50'
+                  }`}
+              >
+                Research
+                <ChevronDown className={`w-3 h-3 transition-transform ${showResearchMenu ? 'rotate-180' : ''}`} />
+              </Link>
+
+              {/* Dropdown Menu */}
+              {showResearchMenu && (
+                <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
+                  <Link
+                    href="/"
+                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname === '/' ? 'text-slate-900 font-medium' : 'text-gray-700'
+                      }`}
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Weekly Scan
+                  </Link>
+                  <Link
+                    href="/weekly-briefs"
+                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname === '/weekly-briefs' ? 'text-slate-900 font-medium' : 'text-gray-700'
+                      }`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    Weekly Synthesis
+                  </Link>
+                  <Link
+                    href="/decisions-inbox"
+                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname?.startsWith('/decisions') ? 'text-slate-900 font-medium' : 'text-gray-700'
+                      }`}
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    Decisions
+                  </Link>
+                </div>
+              )}
+            </div>
+
             <Link
               href="/vibecode-core"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname?.startsWith('/vibecode-core')
@@ -62,15 +89,6 @@ export default function Navigation() {
                 }`}
             >
               Vibecode Core
-            </Link>
-            <Link
-              href="/decisions-inbox"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/decisions-inbox'
-                ? 'bg-slate-900 text-white'
-                : 'text-gray-700 hover:bg-slate-50'
-                }`}
-            >
-              Beslissingen
             </Link>
             <Link
               href="/projects"
@@ -91,4 +109,3 @@ export default function Navigation() {
     </nav>
   )
 }
-
