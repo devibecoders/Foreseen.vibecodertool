@@ -1,5 +1,5 @@
 import { llmService } from './llm'
-import { supabaseAdmin } from './supabase'
+import { supabaseAdmin } from './supabase/server'
 
 export interface MacroTrend {
   trend: string
@@ -143,8 +143,10 @@ export class WeeklySynthesisService {
   }
 
   private async selectArticles(startDate: Date, endDate: Date, maxArticles: number) {
+    const supabase = supabaseAdmin()
+
     // Fetch articles with analyses from Supabase
-    const { data: articles, error } = await supabaseAdmin
+    const { data: articles, error } = await supabase
       .from('articles')
       .select(`
         *,
@@ -159,8 +161,8 @@ export class WeeklySynthesisService {
 
     // Filter to only articles with analysis and sort by impact score
     return (articles || [])
-      .filter(a => a.analyses && a.analyses.length > 0)
-      .sort((a, b) => (b.analyses[0]?.impact_score || 0) - (a.analyses[0]?.impact_score || 0))
+      .filter((a: any) => a.analyses && a.analyses.length > 0)
+      .sort((a: any, b: any) => (b.analyses[0]?.impact_score || 0) - (a.analyses[0]?.impact_score || 0))
   }
 
   private prepareContext(articles: any[], startDate: Date, endDate: Date): string {

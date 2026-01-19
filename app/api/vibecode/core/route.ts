@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 
 const DEFAULT_CORE = {
   user_id: 'default-user',
@@ -35,10 +37,10 @@ Every decision should trace back to delivering tangible value to users.`,
   is_active: true
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const supabase = createClient()
-    
+    const supabase = supabaseAdmin()
+
     const { data: cores, error } = await supabase
       .from('vibecode_core')
       .select('*')
@@ -52,8 +54,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      core: cores && cores.length > 0 ? cores[0] : null 
+    return NextResponse.json({
+      core: cores && cores.length > 0 ? cores[0] : null
     })
   } catch (error: any) {
     console.error('Error in vibecode core GET:', error)
@@ -63,10 +65,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = supabaseAdmin()
     const body = await request.json()
 
-    // If initializing, use default values
     const coreData = body.initialize ? DEFAULT_CORE : {
       user_id: 'default-user',
       ...body
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = supabaseAdmin()
     const body = await request.json()
     const { id, ...updates } = body
 

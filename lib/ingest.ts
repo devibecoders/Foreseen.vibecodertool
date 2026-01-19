@@ -4,7 +4,7 @@
  * Uses Supabase for database operations.
  */
 import Parser from 'rss-parser'
-import { supabaseAdmin } from './supabase'
+import { supabaseAdmin } from './supabase/server'
 import { subDays } from 'date-fns'
 
 const parser = new Parser()
@@ -16,7 +16,9 @@ export interface IngestResult {
 }
 
 export async function ingestFromSources(daysBack: number = 7): Promise<IngestResult> {
-  const { data: sources, error } = await supabaseAdmin
+  const supabase = supabaseAdmin()
+
+  const { data: sources, error } = await supabase
     .from('sources')
     .select('*')
     .eq('enabled', true)
@@ -31,7 +33,7 @@ export async function ingestFromSources(daysBack: number = 7): Promise<IngestRes
   for (const source of sources || []) {
     try {
       if (source.type === 'rss' && source.url) {
-        const result = await ingestRSS(source.url, source.name, source.id, cutoffDate)
+        const result = await ingestRSS(supabase, source.url, source.name, source.id, cutoffDate)
         itemsFetched += result.fetched
         itemsNew += result.newItems
       }
@@ -46,6 +48,7 @@ export async function ingestFromSources(daysBack: number = 7): Promise<IngestRes
 }
 
 async function ingestRSS(
+  supabase: ReturnType<typeof supabaseAdmin>,
   url: string,
   sourceName: string,
   sourceId: string,
@@ -64,7 +67,7 @@ async function ingestRSS(
 
     fetched++
 
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('articles')
       .insert({
         title: item.title,
@@ -94,7 +97,9 @@ export function normalizeTitle(title: string): string {
 }
 
 export async function deduplicateArticles(): Promise<number> {
-  const { data: articles, error } = await supabaseAdmin
+  const supabase = supabaseAdmin()
+
+  const { data: articles, error } = await supabase
     .from('articles')
     .select('id, title, url, created_at')
     .order('created_at', { ascending: true })
@@ -110,7 +115,7 @@ export async function deduplicateArticles(): Promise<number> {
     if (seen.has(normalizedTitle)) {
       const existingId = seen.get(normalizedTitle)!
       if (existingId !== article.id) {
-        await supabaseAdmin.from('articles').delete().eq('id', article.id)
+        await supabase.from('articles').delete().eq('id', article.id)
         duplicatesRemoved++
         continue
       }

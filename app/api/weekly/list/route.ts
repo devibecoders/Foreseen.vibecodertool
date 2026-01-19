@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    // For now, use a default user_id since we don't have auth yet
-    // TODO: Replace with actual auth.uid() when Supabase Auth is integrated
+    const supabase = supabaseAdmin()
     const user_id = 'default-user'
 
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '8')
 
-    const { data: briefs, error } = await supabaseAdmin
+    const { data: briefs, error } = await supabase
       .from('weekly_briefs')
       .select(`
         *,
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('List briefs error:', error)
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

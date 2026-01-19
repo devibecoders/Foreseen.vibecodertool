@@ -4,14 +4,17 @@
  * DELETE /api/scans/[id] - Delete a scan
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { error } = await supabaseAdmin
+    const supabase = supabaseAdmin()
+    const { error } = await supabase
       .from('scans')
       .delete()
       .eq('id', params.id)

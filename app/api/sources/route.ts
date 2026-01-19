@@ -6,11 +6,14 @@
  * PUT    /api/sources - Update an existing source
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const { data: sources, error } = await supabaseAdmin
+    const supabase = supabaseAdmin()
+    const { data: sources, error } = await supabase
       .from('sources')
       .select('*')
       .order('name')
@@ -27,9 +30,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = supabaseAdmin()
     const body = await request.json()
 
-    const { data: source, error } = await supabaseAdmin
+    const { data: source, error } = await supabase
       .from('sources')
       .insert({
         name: body.name,
@@ -53,9 +57,10 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = supabaseAdmin()
     const body = await request.json()
 
-    const { data: source, error } = await supabaseAdmin
+    const { data: source, error } = await supabase
       .from('sources')
       .update({
         name: body.name,

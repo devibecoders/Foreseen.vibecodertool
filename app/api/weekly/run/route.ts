@@ -4,13 +4,16 @@
  * POST /api/weekly/run - Generate a weekly synthesis report
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
 import { weeklySynthesisService } from '@/lib/weekly-synthesis'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = supabaseAdmin()
     const body = await request.json()
-    const { start_date, end_date, mode = 'weekly', force = false } = body
+    const { start_date, end_date, mode = 'weekly', force = false, scan_id } = body
 
     if (!start_date || !end_date) {
       return NextResponse.json(
@@ -19,18 +22,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For now, use a default user_id since we don't have auth yet
     const user_id = 'default-user'
 
     const startDate = new Date(start_date)
     const endDate = new Date(end_date)
-
-    // Generate week label
     const weekLabel = getWeekLabel(startDate)
 
     // Check if brief already exists for this week
     if (!force) {
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await supabase
         .from('weekly_briefs')
         .select('id, title, created_at')
         .eq('user_id', user_id)
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create weekly_run record
-    const { data: run, error: runError } = await supabaseAdmin
+    const { data: run, error: runError } = await supabase
       .from('weekly_runs')
       .insert({
         user_id,
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     try {
       // Get articles for the date range from Supabase
-      const { data: articles, error: articlesError } = await supabaseAdmin
+      const { data: articles, error: articlesError } = await supabase
         .from('articles')
         .select(`
           *,
@@ -82,18 +82,16 @@ export async function POST(request: NextRequest) {
 
       if (articlesError) throw new Error(`Failed to fetch articles: ${articlesError.message}`)
 
-      // Filter to only articles with analysis
-      const articlesWithAnalysis = (articles || []).filter(a => a.analyses && a.analyses.length > 0)
+      const articlesWithAnalysis = (articles || []).filter((a: any) => a.analyses && a.analyses.length > 0)
       const itemsConsidered = articlesWithAnalysis.length
 
-      // Update run with items_considered
-      await supabaseAdmin
+      await supabase
         .from('weekly_runs')
         .update({ items_considered: itemsConsidered })
         .eq('id', run.id)
 
       if (itemsConsidered === 0) {
-        await supabaseAdmin
+        await supabase
           .from('weekly_runs')
           .update({
             status: 'failed',
@@ -115,12 +113,14 @@ export async function POST(request: NextRequest) {
         40
       )
 
-      // Create weekly_brief record
-      const { data: brief, error: briefError } = await supabaseAdmin
+      // Create weekly_brief record with scan_id if provided
+      const { data: brief, error: briefError } = await supabase
         .from('weekly_briefs')
         .insert({
           user_id,
           run_id: run.id,
+          scan_id: scan_id || null,
+          source_mode: scan_id ? 'from_scan' : 'independent',
           week_label: weekLabel,
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
@@ -142,18 +142,18 @@ export async function POST(request: NextRequest) {
       }
 
       // Link articles to brief
-      const articleLinks = articlesWithAnalysis.slice(0, 40).map((article) => ({
+      const articleLinks = articlesWithAnalysis.slice(0, 40).map((article: any) => ({
         brief_id: brief.id,
         article_id: article.id,
         used_reason: `Impact: ${article.analyses[0]?.impact_score || 0}`
       }))
 
-      await supabaseAdmin
+      await supabase
         .from('weekly_brief_sources')
         .insert(articleLinks)
 
       // Update run status
-      await supabaseAdmin
+      await supabase
         .from('weekly_runs')
         .update({
           status: 'done',
@@ -174,8 +174,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error('Synthesis generation error:', error)
 
-      // Update run status to failed
-      await supabaseAdmin
+      await supabase
         .from('weekly_runs')
         .update({
           status: 'failed',

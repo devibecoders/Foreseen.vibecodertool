@@ -5,14 +5,18 @@
  * GET  /api/run - Returns last scan info
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
 import { ingestFromSources, deduplicateArticles } from '@/lib/ingest'
 import { llmService } from '@/lib/llm'
 import { AsyncQueue } from '@/lib/queue'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: Request) {
+  const supabase = supabaseAdmin()
+
   // Create scan record
-  const { data: scan, error: scanError } = await supabaseAdmin
+  const { data: scan, error: scanError } = await supabase
     .from('scans')
     .insert({
       status: 'running',
@@ -38,15 +42,15 @@ export async function POST(request: Request) {
 
     // Step 2: Link new articles to this scan
     console.log('[2/4] Linking new articles to scan...')
-    const { data: newArticles } = await supabaseAdmin
+    const { data: newArticles } = await supabase
       .from('articles')
       .select('id')
       .is('scan_id', null)
       .gte('created_at', scan.started_at)
 
     if (newArticles && newArticles.length > 0) {
-      const ids = newArticles.map(a => a.id)
-      await supabaseAdmin
+      const ids = newArticles.map((a: { id: string }) => a.id)
+      await supabase
         .from('articles')
         .update({ scan_id: scan.id })
         .in('id', ids)
@@ -60,22 +64,22 @@ export async function POST(request: Request) {
 
     // Step 4: Analyze articles without analysis
     console.log('[4/4] Analyzing articles...')
-    const { data: articlesToAnalyze } = await supabaseAdmin
+    const { data: articlesToAnalyze } = await supabase
       .from('articles')
       .select('id, title, url, raw_content')
-      .is('scan_id', scan.id)
+      .eq('scan_id', scan.id)
       .order('published_at', { ascending: false })
       .limit(50)
 
     // Check which articles already have analysis
-    const articleIds = (articlesToAnalyze || []).map(a => a.id)
-    const { data: existingAnalyses } = await supabaseAdmin
+    const articleIds = (articlesToAnalyze || []).map((a: { id: string }) => a.id)
+    const { data: existingAnalyses } = await supabase
       .from('analyses')
       .select('article_id')
       .in('article_id', articleIds)
 
-    const analyzedIds = new Set((existingAnalyses || []).map(a => a.article_id))
-    const articlesWithoutAnalysis = (articlesToAnalyze || []).filter(a => !analyzedIds.has(a.id))
+    const analyzedIds = new Set((existingAnalyses || []).map((a: { article_id: string }) => a.article_id))
+    const articlesWithoutAnalysis = (articlesToAnalyze || []).filter((a: { id: string }) => !analyzedIds.has(a.id))
 
     console.log(`Found ${articlesWithoutAnalysis.length} articles to analyze`)
 
@@ -84,7 +88,7 @@ export async function POST(request: Request) {
     let analyzed = 0
     const errors: string[] = []
 
-    const analysisPromises = articlesWithoutAnalysis.map((article) =>
+    const analysisPromises = articlesWithoutAnalysis.map((article: { id: string; title: string; url: string; raw_content: string | null }) =>
       queue.add(async () => {
         try {
           console.log(`Analyzing: ${article.title.substring(0, 50)}...`)
@@ -94,7 +98,7 @@ export async function POST(request: Request) {
             article.raw_content || undefined
           )
 
-          await supabaseAdmin.from('analyses').insert({
+          await supabase.from('analyses').insert({
             article_id: article.id,
             summary: analysis.summary,
             categories: analysis.categories.join(','),
@@ -121,7 +125,7 @@ export async function POST(request: Request) {
     console.log('[5/5] Complete!')
 
     // Update scan as completed
-    await supabaseAdmin
+    await supabase
       .from('scans')
       .update({
         status: 'completed',
@@ -144,7 +148,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Scan error:', error)
 
-    await supabaseAdmin
+    await supabase
       .from('scans')
       .update({
         status: 'failed',
@@ -164,7 +168,8 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const { data: lastScan } = await supabaseAdmin
+  const supabase = supabaseAdmin()
+  const { data: lastScan } = await supabase
     .from('scans')
     .select('*')
     .order('started_at', { ascending: false })

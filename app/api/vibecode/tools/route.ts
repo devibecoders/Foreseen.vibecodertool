@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = supabaseAdmin()
     const { searchParams } = new URL(request.url)
     const coreId = searchParams.get('coreId')
 
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = supabaseAdmin()
     const body = await request.json()
 
     const { data, error } = await supabase
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = supabaseAdmin()
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
