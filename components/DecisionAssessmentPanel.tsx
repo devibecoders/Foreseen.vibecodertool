@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertTriangle, CheckCircle2, Clock, TrendingUp, Save, Radar as RadarIcon, Shield } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, TrendingUp, Save, Radar as RadarIcon, Shield, Loader2 } from 'lucide-react'
 
 interface DecisionAssessmentPanelProps {
   article: any
+  scanId?: string
+  analysisId?: string
   boundaries?: any[]
   onSave?: (decision: DecisionAssessment) => void
 }
@@ -32,7 +34,7 @@ const HORIZON_OPTIONS = [
   { value: 'long', label: 'Long-term', description: '6+ months', color: 'bg-blue-500' },
 ]
 
-export default function DecisionAssessmentPanel({ article, boundaries = [], onSave }: DecisionAssessmentPanelProps) {
+export default function DecisionAssessmentPanel({ article, scanId, analysisId, boundaries = [], onSave }: DecisionAssessmentPanelProps) {
   const [decision, setDecision] = useState<DecisionAssessment>({
     action_required: 'monitor',
     impact_horizon: 'mid',
@@ -44,6 +46,7 @@ export default function DecisionAssessmentPanel({ article, boundaries = [], onSa
   })
 
   const [conflictingBoundaries, setConflictingBoundaries] = useState<any[]>([])
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     checkBoundaryConflicts()
@@ -63,7 +66,7 @@ export default function DecisionAssessmentPanel({ article, boundaries = [], onSa
     boundaries.forEach(boundary => {
       // Simple keyword matching (in production, use LLM)
       const boundaryKeywords = boundary.title.toLowerCase().split(' ')
-      const hasConflict = boundaryKeywords.some((keyword: string) => 
+      const hasConflict = boundaryKeywords.some((keyword: string) =>
         keyword.length > 3 && articleText.includes(keyword)
       )
 
@@ -73,7 +76,7 @@ export default function DecisionAssessmentPanel({ article, boundaries = [], onSa
     })
 
     setConflictingBoundaries(conflicts)
-    
+
     if (conflicts.length > 0) {
       setDecision(prev => ({
         ...prev,
@@ -89,11 +92,40 @@ export default function DecisionAssessmentPanel({ article, boundaries = [], onSa
     }
   }
 
-  const handleSave = () => {
-    if (onSave) {
-      onSave(decision)
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const response = await fetch('/api/decisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          article_id: article.id,
+          analysis_id: analysisId || article.analysis?.id,
+          scan_id: scanId,
+          action_required: decision.action_required,
+          impact_horizon: decision.impact_horizon,
+          confidence: decision.confidence_score,
+          risk_if_ignored: decision.risk_if_ignored,
+          advantage_if_early: decision.advantage_if_early
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        if (onSave) {
+          onSave(decision)
+        }
+        alert('Decision saved!')
+      } else {
+        alert(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error saving decision:', error)
+      alert('Failed to save decision')
+    } finally {
+      setSaving(false)
     }
-    alert('Decision saved!')
   }
 
   const handleAddToRadar = () => {
@@ -125,11 +157,10 @@ export default function DecisionAssessmentPanel({ article, boundaries = [], onSa
             <button
               key={option.value}
               onClick={() => setDecision({ ...decision, action_required: option.value as any })}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                decision.action_required === option.value
-                  ? `${option.color} ring-2 ring-offset-2 ring-slate-900`
-                  : 'bg-white border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-4 rounded-lg border-2 transition-all ${decision.action_required === option.value
+                ? `${option.color} ring-2 ring-offset-2 ring-slate-900`
+                : 'bg-white border-gray-200 hover:border-gray-300'
+                }`}
             >
               <div className="text-2xl mb-1">{option.icon}</div>
               <div className="text-sm font-semibold">{option.label}</div>
@@ -167,11 +198,10 @@ export default function DecisionAssessmentPanel({ article, boundaries = [], onSa
             <button
               key={option.value}
               onClick={() => setDecision({ ...decision, impact_horizon: option.value as any })}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                decision.impact_horizon === option.value
-                  ? 'bg-white border-slate-900 ring-2 ring-slate-900'
-                  : 'bg-white border-gray-200 hover:border-gray-300'
-              }`}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all ${decision.impact_horizon === option.value
+                ? 'bg-white border-slate-900 ring-2 ring-slate-900'
+                : 'bg-white border-gray-200 hover:border-gray-300'
+                }`}
             >
               <div className={`w-3 h-3 rounded-full ${option.color}`} />
               <div className="flex-1 text-left">
@@ -193,11 +223,10 @@ export default function DecisionAssessmentPanel({ article, boundaries = [], onSa
             <button
               key={score}
               onClick={() => setDecision({ ...decision, confidence_score: score })}
-              className={`flex-1 h-12 rounded-lg border-2 transition-all font-bold ${
-                decision.confidence_score >= score
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
-              }`}
+              className={`flex-1 h-12 rounded-lg border-2 transition-all font-bold ${decision.confidence_score >= score
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                }`}
             >
               {score}
             </button>
@@ -242,11 +271,20 @@ export default function DecisionAssessmentPanel({ article, boundaries = [], onSa
       <div className="space-y-2 pt-4 border-t border-gray-200">
         <button
           onClick={handleSave}
-          disabled={conflictingBoundaries.length > 0 && decision.action_required === 'integrate'}
+          disabled={saving || (conflictingBoundaries.length > 0 && decision.action_required === 'integrate')}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
         >
-          <Save className="w-4 h-4" />
-          Save Decision
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              Save Decision
+            </>
+          )}
         </button>
 
         {(decision.action_required === 'monitor' || decision.action_required === 'experiment') && (

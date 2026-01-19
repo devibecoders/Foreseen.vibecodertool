@@ -3,41 +3,48 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import Navigation from '@/components/Navigation'
-import { Inbox, Filter, TrendingUp, Clock, Target, ExternalLink, ChevronRight } from 'lucide-react'
+import { Inbox, Filter, TrendingUp, Clock, Target, ChevronRight, BarChart3, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface Article {
   id: string
   title: string
   url: string
   source: string
-  publishedAt: string
-  analysis: {
+  published_at: string
+  analyses?: Array<{
     summary: string
     categories: string
-    impactScore: number
-    relevanceReason: string
-    customerAngle: string
-    vibecodersAngle: string
-  }
+    impact_score: number
+  }>
 }
 
-interface DecisionAssessment {
+interface Decision {
   id: string
   article_id: string
+  scan_id?: string
   action_required: 'ignore' | 'monitor' | 'experiment' | 'integrate'
   impact_horizon: 'direct' | 'mid' | 'long'
-  confidence_score: number
-  status: 'pending' | 'processed'
+  confidence: number
   created_at: string
+  article?: Article
+}
+
+interface ScanStats {
+  id: string
+  started_at: string
+  status: string
+  items_analyzed: number
+  decision_assessments: Array<{ count: number }>
 }
 
 export default function DecisionsInboxPage() {
-  const [articles, setArticles] = useState<Article[]>([])
-  const [decisions, setDecisions] = useState<DecisionAssessment[]>([])
+  const [decisions, setDecisions] = useState<Decision[]>([])
+  const [scanStats, setScanStats] = useState<ScanStats[]>([])
   const [loading, setLoading] = useState(true)
   const [filterAction, setFilterAction] = useState<string>('all')
   const [filterHorizon, setFilterHorizon] = useState<string>('all')
-  const [filterConfidence, setFilterConfidence] = useState<number>(0)
+  const [filterScan, setFilterScan] = useState<string>('all')
+  const [expandedScans, setExpandedScans] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchData()
@@ -46,33 +53,23 @@ export default function DecisionsInboxPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // Fetch recent articles from latest scan
-      const scansResponse = await fetch('/api/scans')
-      const scansData = await scansResponse.json()
-      
-      if (scansData.scans && scansData.scans.length > 0) {
-        const latestScan = scansData.scans[0]
-        const scanResponse = await fetch(`/api/scans?scanId=${latestScan.id}`)
-        const scanData = await scanResponse.json()
-        
-        const articlesWithAnalysis = (scanData.scan.articles || []).filter((a: Article) => a.analysis)
-        setArticles(articlesWithAnalysis)
+      const response = await fetch('/api/decisions')
+      const data = await response.json()
 
-        // TODO: Fetch actual decisions from decision_assessments table
-        // For now, mock pending decisions
-        const mockDecisions: DecisionAssessment[] = articlesWithAnalysis.slice(0, 10).map((article: Article) => ({
-          id: `dec-${article.id}`,
-          article_id: article.id,
-          action_required: 'monitor',
-          impact_horizon: 'mid',
-          confidence_score: 3,
-          status: 'pending',
-          created_at: article.publishedAt
-        }))
-        setDecisions(mockDecisions)
+      setDecisions(data.decisions || [])
+      setScanStats(data.scanStats || [])
+
+      // Auto-expand first scan with decisions
+      if (data.scanStats && data.scanStats.length > 0) {
+        const firstWithDecisions = data.scanStats.find((s: ScanStats) =>
+          s.decision_assessments?.[0]?.count > 0
+        )
+        if (firstWithDecisions) {
+          setExpandedScans(new Set([firstWithDecisions.id]))
+        }
       }
     } catch (error) {
-      console.error('Error fetching data:', error)
+      console.error('Error fetching decisions:', error)
     } finally {
       setLoading(false)
     }
@@ -81,12 +78,28 @@ export default function DecisionsInboxPage() {
   const filteredDecisions = decisions.filter(decision => {
     if (filterAction !== 'all' && decision.action_required !== filterAction) return false
     if (filterHorizon !== 'all' && decision.impact_horizon !== filterHorizon) return false
-    if (filterConfidence > 0 && decision.confidence_score < filterConfidence) return false
+    if (filterScan !== 'all' && decision.scan_id !== filterScan) return false
     return true
   })
 
-  const getArticleForDecision = (decision: DecisionAssessment) => {
-    return articles.find(a => a.id === decision.article_id)
+  // Group decisions by scan_id
+  const decisionsByScan = filteredDecisions.reduce((acc, decision) => {
+    const scanId = decision.scan_id || 'no-scan'
+    if (!acc[scanId]) acc[scanId] = []
+    acc[scanId].push(decision)
+    return acc
+  }, {} as Record<string, Decision[]>)
+
+  const toggleScanExpand = (scanId: string) => {
+    setExpandedScans(prev => {
+      const next = new Set(prev)
+      if (next.has(scanId)) {
+        next.delete(scanId)
+      } else {
+        next.add(scanId)
+      }
+      return next
+    })
   }
 
   const getActionColor = (action: string) => {
@@ -108,10 +121,18 @@ export default function DecisionsInboxPage() {
     }
   }
 
+  const getScanLabel = (scanId: string) => {
+    const scan = scanStats.find(s => s.id === scanId)
+    if (scan) {
+      return `Scan ${format(new Date(scan.started_at), 'MMM d, HH:mm')}`
+    }
+    return scanId === 'no-scan' ? 'Unlinked Decisions' : scanId
+  }
+
   return (
     <div className="min-h-screen">
       <Navigation />
-      
+
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -120,15 +141,15 @@ export default function DecisionsInboxPage() {
               <Inbox className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Decision Inbox</h1>
-              <p className="text-sm text-gray-600 mt-0.5">Articles awaiting human decision</p>
+              <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Decisions Inbox</h1>
+              <p className="text-sm text-gray-600 mt-0.5">Decisions grouped by scan</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-gray-900">{filteredDecisions.length}</p>
-              <p className="text-xs text-gray-500">Pending</p>
+              <p className="text-xs text-gray-500">Total</p>
             </div>
           </div>
         </div>
@@ -140,7 +161,23 @@ export default function DecisionsInboxPage() {
             <h2 className="text-sm font-semibold text-gray-900">Filters</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Scan</label>
+              <select
+                value={filterScan}
+                onChange={(e) => setFilterScan(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+              >
+                <option value="all">All Scans</option>
+                {scanStats.map(scan => (
+                  <option key={scan.id} value={scan.id}>
+                    {format(new Date(scan.started_at), 'MMM d, HH:mm')}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1.5">Action</label>
               <select
@@ -170,25 +207,18 @@ export default function DecisionsInboxPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">Min Confidence</label>
-              <select
-                value={filterConfidence}
-                onChange={(e) => setFilterConfidence(parseInt(e.target.value))}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+            <div className="flex items-end">
+              <button
+                onClick={fetchData}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all"
               >
-                <option value="0">Any</option>
-                <option value="1">1+</option>
-                <option value="2">2+</option>
-                <option value="3">3+</option>
-                <option value="4">4+</option>
-                <option value="5">5</option>
-              </select>
+                Refresh
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Decision List */}
+        {/* Decision List Grouped by Scan */}
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="text-center">
@@ -199,72 +229,101 @@ export default function DecisionsInboxPage() {
         ) : filteredDecisions.length === 0 ? (
           <div className="text-center py-24 bg-white border border-slate-200 rounded-xl">
             <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">No pending decisions.</p>
-            <p className="text-xs text-gray-400 mt-1">All articles have been processed.</p>
+            <p className="text-sm text-gray-500">No decisions yet.</p>
+            <p className="text-xs text-gray-400 mt-1">Make decisions on articles from the Dashboard.</p>
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="divide-y divide-slate-200">
-              {filteredDecisions.map(decision => {
-                const article = getArticleForDecision(decision)
-                if (!article) return null
-
-                return (
-                  <div
-                    key={decision.id}
-                    className="p-5 hover:bg-slate-50 transition-all cursor-pointer group"
-                    onClick={() => window.location.href = '/'}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-base font-semibold text-gray-900 group-hover:text-slate-800">
-                            {article.title}
-                          </h3>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
-                          <span className="font-medium">{article.source}</span>
-                          <span>·</span>
-                          <span>{format(new Date(article.publishedAt), 'MMM d, yyyy')}</span>
-                          <span>·</span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold ${
-                            article.analysis.impactScore >= 70 ? 'bg-success-100 text-success-700' :
-                            article.analysis.impactScore >= 50 ? 'bg-warning-100 text-warning-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            Impact: {article.analysis.impactScore}
-                          </span>
-                        </div>
-
-                        <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                          {article.analysis.summary}
-                        </p>
-
-                        <div className="flex items-center gap-3">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold border ${getActionColor(decision.action_required)}`}>
-                            {decision.action_required.toUpperCase()}
-                          </span>
-                          
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-3 h-3 text-gray-500" />
-                            <span className="text-xs text-gray-600">{decision.impact_horizon}</span>
-                            <div className={`w-2 h-2 rounded-full ${getHorizonColor(decision.impact_horizon)}`} />
-                          </div>
-
-                          <div className="flex items-center gap-1.5">
-                            <Target className="w-3 h-3 text-gray-500" />
-                            <span className="text-xs text-gray-600">Confidence: {decision.confidence_score}/5</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-slate-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
-                    </div>
+          <div className="space-y-4">
+            {Object.entries(decisionsByScan).map(([scanId, scanDecisions]) => (
+              <div key={scanId} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                {/* Scan Header */}
+                <button
+                  onClick={() => toggleScanExpand(scanId)}
+                  className="w-full px-5 py-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <BarChart3 className="w-4 h-4 text-slate-600" />
+                    <span className="font-semibold text-gray-900">{getScanLabel(scanId)}</span>
+                    <span className="text-xs text-gray-500 bg-slate-200 px-2 py-0.5 rounded-full">
+                      {scanDecisions.length} decisions
+                    </span>
                   </div>
-                )
-              })}
-            </div>
+                  {expandedScans.has(scanId) ? (
+                    <ChevronUp className="w-5 h-5 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
+
+                {/* Decisions List */}
+                {expandedScans.has(scanId) && (
+                  <div className="divide-y divide-slate-200">
+                    {scanDecisions.map(decision => {
+                      const article = decision.article
+                      if (!article) return null
+
+                      return (
+                        <div
+                          key={decision.id}
+                          className="p-5 hover:bg-slate-50 transition-all cursor-pointer group"
+                          onClick={() => window.open(article.url, '_blank')}
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base font-semibold text-gray-900 group-hover:text-slate-800 mb-2">
+                                {article.title}
+                              </h3>
+
+                              <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+                                <span className="font-medium">{article.source}</span>
+                                <span>·</span>
+                                <span>{format(new Date(article.published_at), 'MMM d, yyyy')}</span>
+                                {article.analyses?.[0] && (
+                                  <>
+                                    <span>·</span>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold ${article.analyses[0].impact_score >= 70 ? 'bg-green-100 text-green-700' :
+                                        article.analyses[0].impact_score >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                                          'bg-gray-100 text-gray-700'
+                                      }`}>
+                                      Impact: {article.analyses[0].impact_score}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+
+                              {article.analyses?.[0]?.summary && (
+                                <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                                  {article.analyses[0].summary}
+                                </p>
+                              )}
+
+                              <div className="flex items-center gap-3">
+                                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold border ${getActionColor(decision.action_required)}`}>
+                                  {decision.action_required.toUpperCase()}
+                                </span>
+
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="w-3 h-3 text-gray-500" />
+                                  <span className="text-xs text-gray-600">{decision.impact_horizon}</span>
+                                  <div className={`w-2 h-2 rounded-full ${getHorizonColor(decision.impact_horizon)}`} />
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                  <Target className="w-3 h-3 text-gray-500" />
+                                  <span className="text-xs text-gray-600">Confidence: {decision.confidence}/5</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-slate-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </main>
