@@ -1,21 +1,21 @@
 /**
  * Navigation
  *
- * Hoofdnavigatiebalk met Research dropdown menu.
+ * Hoofdnavigatiebalk met Dashboard home + Research dropdown menu.
  */
 'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { ChevronDown, BarChart3, FileText, CheckSquare } from 'lucide-react'
+import { ChevronDown, BarChart3, FileText, CheckSquare, Home, Sparkles } from 'lucide-react'
 
 export default function Navigation() {
   const pathname = usePathname()
   const [showResearchMenu, setShowResearchMenu] = useState(false)
 
+  const isDashboardActive = pathname === '/' || pathname === '/dashboard'
   const isResearchActive = pathname?.startsWith('/research') ||
-    pathname === '/' ||
     pathname === '/weekly-briefs' ||
     pathname?.startsWith('/decisions')
 
@@ -23,7 +23,7 @@ export default function Navigation() {
     <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-14">
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/dashboard" className="flex items-center gap-2 group">
             <div className="w-7 h-7 rounded-md bg-gray-900 flex items-center justify-center">
               <span className="text-white text-sm font-bold">F</span>
             </div>
@@ -33,6 +33,18 @@ export default function Navigation() {
           </Link>
 
           <nav className="flex items-center gap-1">
+            {/* Dashboard - Home */}
+            <Link
+              href="/dashboard"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${isDashboardActive
+                ? 'bg-slate-900 text-white'
+                : 'text-gray-700 hover:bg-slate-50'
+                }`}
+            >
+              <Home className="w-4 h-4" />
+              Dashboard
+            </Link>
+
             {/* Research Hub with dropdown */}
             <div
               className="relative"
@@ -42,8 +54,8 @@ export default function Navigation() {
               <Link
                 href="/research"
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${isResearchActive
-                    ? 'bg-slate-900 text-white'
-                    : 'text-gray-700 hover:bg-slate-50'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-gray-700 hover:bg-slate-50'
                   }`}
               >
                 Research
@@ -54,8 +66,16 @@ export default function Navigation() {
               {showResearchMenu && (
                 <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
                   <Link
-                    href="/"
-                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname === '/' ? 'text-slate-900 font-medium' : 'text-gray-700'
+                    href="/research"
+                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname === '/research' ? 'text-slate-900 font-medium' : 'text-gray-700'
+                      }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Research Hub
+                  </Link>
+                  <Link
+                    href="/scans"
+                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname === '/scans' ? 'text-slate-900 font-medium' : 'text-gray-700'
                       }`}
                   >
                     <BarChart3 className="w-4 h-4" />
@@ -97,7 +117,7 @@ export default function Navigation() {
                 : 'text-gray-700 hover:bg-slate-50'
                 }`}
             >
-              Projecten
+              Projects
             </Link>
           </nav>
 
