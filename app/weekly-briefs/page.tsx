@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { format, subDays } from 'date-fns'
 import Navigation from '@/components/Navigation'
 import ImplicationsTable from '@/components/ImplicationsTable'
-import { FileText, TrendingUp, Target, AlertCircle, BookOpen, Calendar, Download, ArrowLeft, Lightbulb, CheckCircle2, XCircle } from 'lucide-react'
+import { FileText, TrendingUp, Target, AlertCircle, BookOpen, Calendar, Download, ArrowLeft, Lightbulb, CheckCircle2, XCircle, BarChart3 } from 'lucide-react'
 
 interface WeeklyBrief {
   id: string
@@ -20,6 +20,8 @@ interface WeeklyBrief {
   reading_list: any[]
   full_markdown: string
   created_at: string
+  scan_id?: string
+  source_mode?: string
   run: {
     items_considered: number
     items_used: number
@@ -27,17 +29,28 @@ interface WeeklyBrief {
   }
 }
 
+interface Scan {
+  id: string
+  startedAt: string
+  status: string
+  itemsAnalyzed: number
+  _count: { articles: number }
+}
+
 export default function WeeklyBriefsPage() {
   const [briefs, setBriefs] = useState<WeeklyBrief[]>([])
+  const [scans, setScans] = useState<Scan[]>([])
   const [selectedBrief, setSelectedBrief] = useState<WeeklyBrief | null>(null)
+  const [selectedScanId, setSelectedScanId] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
-  const [mode, setMode] = useState<'weekly' | 'backfill'>('weekly')
+  const [mode, setMode] = useState<'from_scan' | 'weekly' | 'backfill'>('from_scan')
   const [startDate, setStartDate] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
 
   useEffect(() => {
     fetchBriefs()
+    fetchScans()
   }, [])
 
   const fetchBriefs = async () => {
@@ -53,24 +66,67 @@ export default function WeeklyBriefsPage() {
     }
   }
 
+  const fetchScans = async () => {
+    try {
+      const response = await fetch('/api/scans')
+      const data = await response.json()
+      const completedScans = (data.scans || []).filter((s: Scan) => s.status === 'completed')
+      setScans(completedScans)
+      if (completedScans.length > 0 && !selectedScanId) {
+        setSelectedScanId(completedScans[0].id)
+      }
+    } catch (error) {
+      console.error('Error fetching scans:', error)
+    }
+  }
+
   const generateBrief = async () => {
-    if (!confirm(`Generate ${mode === 'weekly' ? 'weekly' : 'backfill (30 days)'} synthesis?\n\nThis may take 1-2 minutes.`)) {
+    const modeText = mode === 'from_scan'
+      ? 'synthesis from selected scan'
+      : mode === 'weekly'
+        ? 'weekly synthesis'
+        : 'backfill synthesis (30 days)'
+
+    if (!confirm(`Generate ${modeText}?\n\nThis may take 1-2 minutes.`)) {
+      return
+    }
+
+    if (mode === 'from_scan' && !selectedScanId) {
+      alert('Please select a scan first')
       return
     }
 
     setGenerating(true)
     try {
-      const dates = mode === 'weekly' 
-        ? { start_date: startDate, end_date: endDate }
-        : { 
-            start_date: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-            end_date: format(new Date(), 'yyyy-MM-dd')
+      let dates: { start_date: string; end_date: string }
+      if (mode === 'from_scan') {
+        const scan = scans.find(s => s.id === selectedScanId)
+        if (scan) {
+          const scanDate = new Date(scan.startedAt)
+          dates = {
+            start_date: format(subDays(scanDate, 7), 'yyyy-MM-dd'),
+            end_date: format(scanDate, 'yyyy-MM-dd')
           }
+        } else {
+          dates = { start_date: startDate, end_date: endDate }
+        }
+      } else if (mode === 'weekly') {
+        dates = { start_date: startDate, end_date: endDate }
+      } else {
+        dates = {
+          start_date: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+          end_date: format(new Date(), 'yyyy-MM-dd')
+        }
+      }
 
       const response = await fetch('/api/weekly/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...dates, mode })
+        body: JSON.stringify({
+          ...dates,
+          mode: mode === 'from_scan' ? 'weekly' : mode,
+          scan_id: mode === 'from_scan' ? selectedScanId : undefined
+        })
       })
 
       const data = await response.json()
@@ -110,7 +166,7 @@ export default function WeeklyBriefsPage() {
       <div className="print:hidden">
         <Navigation />
       </div>
-      
+
       <main className="max-w-7xl mx-auto px-6 py-8 print:px-0 print:py-0 print:max-w-none">
         {!selectedBrief ? (
           <div className="space-y-6">
@@ -131,21 +187,48 @@ export default function WeeklyBriefsPage() {
                 <TrendingUp className="w-4 h-4 text-slate-700" />
                 <h2 className="text-sm font-semibold text-gray-900">Generate New Synthesis</h2>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                    Mode
+                    Source
                   </label>
                   <select
                     value={mode}
-                    onChange={(e) => setMode(e.target.value as 'weekly' | 'backfill')}
+                    onChange={(e) => setMode(e.target.value as 'from_scan' | 'weekly' | 'backfill')}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
                   >
-                    <option value="weekly">Weekly (7 days)</option>
+                    <option value="from_scan">From Scan (recommended)</option>
+                    <option value="weekly">Custom Dates (7 days)</option>
                     <option value="backfill">Backfill (30 days)</option>
                   </select>
                 </div>
+
+                {mode === 'from_scan' && (
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                      <BarChart3 className="w-3 h-3 inline mr-1" />
+                      Select Scan
+                    </label>
+                    {scans.length > 0 ? (
+                      <select
+                        value={selectedScanId}
+                        onChange={(e) => setSelectedScanId(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+                      >
+                        {scans.map(scan => (
+                          <option key={scan.id} value={scan.id}>
+                            {format(new Date(scan.startedAt), 'MMM d, yyyy HH:mm')} — {scan._count?.articles || scan.itemsAnalyzed} articles
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg bg-gray-50">
+                        No completed scans. <a href="/" className="text-slate-900 underline">Run a scan first</a>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {mode === 'weekly' && (
                   <>
@@ -339,7 +422,7 @@ export default function WeeklyBriefsPage() {
               <div id="brief-content" className="bg-white print:shadow-none">
                 <div className="max-w-4xl mx-auto px-12 py-16 print:px-8 print:py-8">
                   {/* Parse and render structured content */}
-                  <StructuredBriefContent 
+                  <StructuredBriefContent
                     markdown={selectedBrief.full_markdown}
                     implications={selectedBrief.implications_vibecoding}
                   />
@@ -381,7 +464,7 @@ export default function WeeklyBriefsPage() {
 function StructuredBriefContent({ markdown, implications }: { markdown: string, implications: any[] }) {
   // Parse markdown into sections
   const sections = parseMarkdownSections(markdown)
-  
+
   return (
     <div className="space-y-8">
       {sections.map((section, idx) => {
@@ -396,7 +479,7 @@ function StructuredBriefContent({ markdown, implications }: { markdown: string, 
             </div>
           )
         }
-        
+
         // Executive Summary with special styling
         if (section.title.toLowerCase().includes('executive summary')) {
           return (
@@ -405,21 +488,21 @@ function StructuredBriefContent({ markdown, implications }: { markdown: string, 
                 <FileText className="w-6 h-6" />
                 {section.title}
               </h2>
-              <div 
+              <div
                 className="prose prose-slate max-w-none prose-p:text-slate-700 prose-p:font-serif"
                 dangerouslySetInnerHTML={{ __html: section.content }}
               />
             </div>
           )
         }
-        
+
         // Regular sections
         return (
           <div key={idx} className="break-inside-avoid">
             <h2 className="text-2xl font-bold font-serif text-slate-900 mb-6 pb-3 border-b-2 border-slate-200">
               {section.title}
             </h2>
-            <div 
+            <div
               className="prose prose-slate lg:prose-lg max-w-none
                 prose-headings:font-serif prose-headings:font-bold
                 prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3
@@ -441,7 +524,7 @@ function parseMarkdownSections(markdown: string) {
   const sections: { title: string, content: string }[] = []
   const lines = markdown.split('\n')
   let currentSection: { title: string, content: string } | null = null
-  
+
   for (const line of lines) {
     if (line.startsWith('## ')) {
       if (currentSection) {
@@ -455,11 +538,11 @@ function parseMarkdownSections(markdown: string) {
       currentSection.content += line + '\n'
     }
   }
-  
+
   if (currentSection) {
     sections.push(currentSection)
   }
-  
+
   return sections.map(section => ({
     ...section,
     content: renderMarkdown(section.content)
