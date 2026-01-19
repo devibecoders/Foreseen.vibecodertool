@@ -302,10 +302,11 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* TOP ROW: 3 Primary Blocks */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    {/* Research Block */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                {/* MAIN DASHBOARD GRID */}
+                <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
+
+                    {/* 1. Research Block (Desktop: Row 1 Col 1 | Mobile: #1) */}
+                    <div className="lg:col-span-2 order-1 lg:order-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                         <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-900 to-slate-800">
                             <div className="flex items-center gap-2">
                                 <BarChart3 className="w-5 h-5 text-white" />
@@ -373,145 +374,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Vibecode Core Block */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-purple-600 to-purple-700">
-                            <div className="flex items-center gap-2">
-                                <Lightbulb className="w-5 h-5 text-white" />
-                                <h2 className="text-sm font-bold text-white">Vibecode Core</h2>
-                            </div>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            {data?.vibecodeCore?.lastUpdated && (
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-500">Last updated</span>
-                                    <span className="text-gray-700 font-medium">
-                                        {format(new Date(data.vibecodeCore.lastUpdated), 'MMM d, yyyy')}
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Principles Preview */}
-                            {(data?.vibecodeCore?.principlesPreview?.length ?? 0) > 0 && (
-                                <div className="space-y-2">
-                                    {data?.vibecodeCore?.principlesPreview?.map(p => (
-                                        <div key={p.id} className="p-3 bg-purple-50 rounded-lg border border-purple-100">
-                                            <p className="text-sm font-medium text-purple-900">{p.name}</p>
-                                            <p className="text-xs text-purple-700 mt-1 line-clamp-2">{p.description}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            <Link
-                                href="/vibecode-core"
-                                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
-                            >
-                                Open Vibecode Core
-                                <ChevronRight className="w-4 h-4" />
-                            </Link>
-                        </div>
-                    </div>
-
-                    {/* Projects Block */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-emerald-600 to-emerald-700">
-                            <div className="flex items-center gap-2">
-                                <Folder className="w-5 h-5 text-white" />
-                                <h2 className="text-sm font-bold text-white">Projects</h2>
-                            </div>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            {/* Stats */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="text-center p-3 bg-slate-50 rounded-lg">
-                                    <p className="text-2xl font-bold text-gray-900">{data?.projects?.activeCount || 0}</p>
-                                    <p className="text-xs text-gray-500">Active</p>
-                                </div>
-                                <div className="text-center p-3 bg-slate-50 rounded-lg">
-                                    <p className="text-2xl font-bold text-green-600">{data?.projects?.completedCount || 0}</p>
-                                    <p className="text-xs text-gray-500">Completed</p>
-                                </div>
-                            </div>
-
-                            {/* Recent Projects */}
-                            {(data?.projects?.recent?.length ?? 0) > 0 && (
-                                <div className="space-y-2">
-                                    {data?.projects?.recent?.map(p => (
-                                        <div key={p.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                                            <span className="text-sm text-gray-700 truncate">{p.name}</span>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'Done' ? 'bg-green-100 text-green-700' :
-                                                p.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-gray-100 text-gray-700'
-                                                }`}>
-                                                {p.status}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            <Link
-                                href="/projects"
-                                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
-                            >
-                                Open Projects
-                                <ChevronRight className="w-4 h-4" />
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-
-                {/* MIDDLE ROW: This Week + Actionables */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    {/* This Week Brief */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-                            <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-slate-700" />
-                                <h2 className="text-sm font-semibold text-gray-900">This Week&apos;s Brief</h2>
-                            </div>
-                        </div>
-                        <div className="p-5">
-                            {data?.latestBrief ? (
-                                <div className="space-y-4">
-                                    <div>
-                                        <h3 className="text-base font-semibold text-gray-900">{data.latestBrief.title}</h3>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            {data.latestBrief.weekLabel} · {format(new Date(data.latestBrief.startDate), 'MMM d')} - {format(new Date(data.latestBrief.endDate), 'MMM d')}
-                                        </p>
-                                    </div>
-                                    {data.latestBrief.executiveSummary && (
-                                        <p className="text-sm text-gray-600 line-clamp-4">
-                                            {data.latestBrief.executiveSummary}
-                                        </p>
-                                    )}
-                                    <Link
-                                        href="/weekly-briefs"
-                                        className="inline-flex items-center gap-2 text-sm font-medium text-slate-900 hover:underline"
-                                    >
-                                        Open Weekly Brief
-                                        <ChevronRight className="w-4 h-4" />
-                                    </Link>
-                                </div>
-                            ) : (
-                                <div className="text-center py-8">
-                                    <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                                    <p className="text-sm text-gray-500 mb-4">No brief generated yet</p>
-                                    <Link
-                                        href="/weekly-briefs"
-                                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800"
-                                    >
-                                        <Sparkles className="w-4 h-4" />
-                                        Generate from Latest Scan
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Actionables: Unreviewed Articles */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    {/* 2. Actionables: Unreviewed Articles (Desktop: Row 2 Col 2 | Mobile: #2) */}
+                    <div className="lg:col-span-3 order-2 lg:order-5 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                         <div className="px-5 py-4 border-b border-slate-100 bg-orange-50/50">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -587,12 +451,143 @@ export default function DashboardPage() {
                             </div>
                         )}
                     </div>
-                </div>
 
-                {/* BOTTOM ROW: Notes + Tasks */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Weekly Notes */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    {/* 3. This Week Brief (Desktop: Row 2 Col 1 | Mobile: #3) */}
+                    <div className="lg:col-span-3 order-3 lg:order-4 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+                            <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-slate-700" />
+                                <h2 className="text-sm font-semibold text-gray-900">This Week&apos;s Brief</h2>
+                            </div>
+                        </div>
+                        <div className="p-5">
+                            {data?.latestBrief ? (
+                                <div className="space-y-4">
+                                    <div>
+                                        <h3 className="text-base font-semibold text-gray-900">{data.latestBrief.title}</h3>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {data.latestBrief.weekLabel} · {format(new Date(data.latestBrief.startDate), 'MMM d')} - {format(new Date(data.latestBrief.endDate), 'MMM d')}
+                                        </p>
+                                    </div>
+                                    {data.latestBrief.executiveSummary && (
+                                        <p className="text-sm text-gray-600 line-clamp-4">
+                                            {data.latestBrief.executiveSummary}
+                                        </p>
+                                    )}
+                                    <Link
+                                        href="/weekly-briefs"
+                                        className="inline-flex items-center gap-2 text-sm font-medium text-slate-900 hover:underline"
+                                    >
+                                        Open Weekly Brief
+                                        <ChevronRight className="w-4 h-4" />
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                                    <p className="text-sm text-gray-500 mb-4">No brief generated yet</p>
+                                    <Link
+                                        href="/weekly-briefs"
+                                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800"
+                                    >
+                                        <Sparkles className="w-4 h-4" />
+                                        Generate from Latest Scan
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 4. Vibecode Core Block (Desktop: Row 1 Col 2 | Mobile: #4) */}
+                    <div className="lg:col-span-2 order-4 lg:order-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                        <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-purple-600 to-purple-700">
+                            <div className="flex items-center gap-2">
+                                <Lightbulb className="w-5 h-5 text-white" />
+                                <h2 className="text-sm font-bold text-white">Vibecode Core</h2>
+                            </div>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            {data?.vibecodeCore?.lastUpdated && (
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-500">Last updated</span>
+                                    <span className="text-gray-700 font-medium">
+                                        {format(new Date(data.vibecodeCore.lastUpdated), 'MMM d, yyyy')}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Principles Preview */}
+                            {(data?.vibecodeCore?.principlesPreview?.length ?? 0) > 0 && (
+                                <div className="space-y-2">
+                                    {data?.vibecodeCore?.principlesPreview?.map(p => (
+                                        <div key={p.id} className="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                                            <p className="text-sm font-medium text-purple-900">{p.name}</p>
+                                            <p className="text-xs text-purple-700 mt-1 line-clamp-2">{p.description}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <Link
+                                href="/vibecode-core"
+                                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                Open Vibecode Core
+                                <ChevronRight className="w-4 h-4" />
+                            </Link>
+                        </div>
+                    </div>
+
+                    {/* 5. Projects Block (Desktop: Row 1 Col 3 | Mobile: #5) */}
+                    <div className="lg:col-span-2 order-5 lg:order-3 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                        <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-emerald-600 to-emerald-700">
+                            <div className="flex items-center gap-2">
+                                <Folder className="w-5 h-5 text-white" />
+                                <h2 className="text-sm font-bold text-white">Projects</h2>
+                            </div>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            {/* Stats */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                                    <p className="text-2xl font-bold text-gray-900">{data?.projects?.activeCount || 0}</p>
+                                    <p className="text-xs text-gray-500">Active</p>
+                                </div>
+                                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                                    <p className="text-2xl font-bold text-green-600">{data?.projects?.completedCount || 0}</p>
+                                    <p className="text-xs text-gray-500">Completed</p>
+                                </div>
+                            </div>
+
+                            {/* Recent Projects */}
+                            {(data?.projects?.recent?.length ?? 0) > 0 && (
+                                <div className="space-y-2">
+                                    {data?.projects?.recent?.map(p => (
+                                        <div key={p.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                                            <span className="text-sm text-gray-700 truncate">{p.name}</span>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'Done' ? 'bg-green-100 text-green-700' :
+                                                p.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
+                                                    'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                {p.status}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <Link
+                                href="/projects"
+                                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                Open Projects
+                                <ChevronRight className="w-4 h-4" />
+                            </Link>
+                        </div>
+                    </div>
+
+                    {/* 6. Weekly Notes (Desktop: Row 3 Col 1 | Mobile: #6) */}
+                    <div className="lg:col-span-3 order-6 lg:order-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -622,8 +617,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Team Tasks */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    {/* 7. Team Tasks (Desktop: Row 3 Col 2 | Mobile: #7) */}
+                    <div className="lg:col-span-3 order-7 lg:order-7 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -649,31 +644,31 @@ export default function DashboardPage() {
 
                         {/* Add Task Form */}
                         <div className="p-4 border-b border-slate-100 bg-slate-50/30">
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 text-[10px] sm:text-sm">
                                 <input
                                     type="text"
                                     value={newTask.assignee_name}
                                     onChange={(e) => setNewTask({ ...newTask, assignee_name: e.target.value })}
                                     placeholder="Assignee"
-                                    className="w-24 px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                    className="w-16 sm:w-24 px-2 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
                                 />
                                 <input
                                     type="text"
                                     value={newTask.title}
                                     onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                                     placeholder="Task title..."
-                                    className="flex-1 px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                    className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
                                 />
                                 <input
                                     type="date"
                                     value={newTask.due_date}
                                     onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                                    className="w-32 px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                    className="hidden sm:block w-32 px-2 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
                                 />
                                 <button
                                     onClick={addTask}
                                     disabled={!newTask.assignee_name || !newTask.title}
-                                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-sm font-medium disabled:bg-gray-300 hover:bg-slate-800 transition-all"
+                                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-medium disabled:bg-gray-300 hover:bg-slate-800 transition-all"
                                 >
                                     <Plus className="w-4 h-4" />
                                 </button>
@@ -685,21 +680,21 @@ export default function DashboardPage() {
                             {filteredTasks.length > 0 ? (
                                 filteredTasks.map(task => (
                                     <div key={task.id} className="p-4 hover:bg-slate-50 transition-all">
-                                        <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-start justify-between gap-3 text-sm">
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-slate-100 px-2 py-0.5 rounded">
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 bg-slate-100 px-2 py-0.5 rounded">
                                                         <User className="w-3 h-3" />
                                                         {task.assignee_name}
                                                     </span>
                                                     {task.due_date && (
-                                                        <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                                                        <span className="inline-flex items-center gap-1 text-[10px] text-gray-500">
                                                             <Calendar className="w-3 h-3" />
                                                             {format(new Date(task.due_date), 'MMM d')}
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className={`text-sm ${task.status === 'done' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                                                <p className={task.status === 'done' ? 'text-gray-400 line-through' : 'text-gray-900'}>
                                                     {task.title}
                                                 </p>
                                             </div>
@@ -707,7 +702,7 @@ export default function DashboardPage() {
                                                 <select
                                                     value={task.status}
                                                     onChange={(e) => updateTaskStatus(task.id, e.target.value)}
-                                                    className={`text-xs px-2 py-1 rounded-lg border-0 font-medium cursor-pointer ${task.status === 'done' ? 'bg-green-100 text-green-700' :
+                                                    className={`text-[10px] px-2 py-1 rounded-lg border-0 font-medium cursor-pointer ${task.status === 'done' ? 'bg-green-100 text-green-700' :
                                                         task.status === 'doing' ? 'bg-blue-100 text-blue-700' :
                                                             'bg-gray-100 text-gray-700'
                                                         }`}
@@ -736,6 +731,7 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </main>
+
             <ConfirmModal
                 isOpen={showDeleteTaskModal}
                 title="Delete Task?"

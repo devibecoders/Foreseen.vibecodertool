@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import Link from 'next/link'
 import Navigation from '@/components/Navigation'
 import {
-  BarChart3, Calendar, Trash2, Sparkles, AlertCircle
+  BarChart3, Calendar, Trash2, Sparkles, AlertCircle, ChevronRight
 } from 'lucide-react'
 import ConfirmModal from '@/components/ConfirmModal'
 
@@ -134,57 +134,61 @@ export default function ScansListPage() {
           </div>
 
           {/* Scans Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {loading ? (
               <div className="col-span-full p-12 text-center">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-slate-900"></div>
               </div>
             ) : scans.length === 0 ? (
-              <div className="col-span-full p-12 text-center bg-white border border-slate-200 rounded-xl shadow-sm">
+              <div className="col-span-full p-12 text-center bg-white border border-slate-200 rounded-2xl shadow-sm">
                 <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">No scans yet.</p>
-                <p className="text-xs text-gray-400 mt-1">Create your first scan to get started.</p>
+                <p className="text-sm font-bold text-gray-900">No scans yet.</p>
+                <p className="text-xs text-gray-400 mt-1">Start your first scan to begin researching.</p>
               </div>
             ) : (
               scans.map(scan => (
                 <div
                   key={scan.id}
-                  className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl hover:border-slate-300 transition-all group relative"
+                  className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl hover:border-slate-300 transition-all group relative active:scale-[0.99]"
                 >
-                  <Link href={`/research/scan/${scan.id}`} className="block p-6">
-                    <div className="flex items-start justify-between mb-4">
+                  <Link href={`/research/scan/${scan.id}`} className="block p-5 md:p-6">
+                    <div className="flex items-start justify-between mb-5">
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-slate-400" />
-                        <p className="text-sm font-bold text-gray-900">
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                          <Calendar className="w-4 h-4 text-slate-600" />
+                        </div>
+                        <p className="text-sm font-black text-gray-900 tracking-tight">
                           {format(new Date(scan.startedAt), 'MMM d, yyyy')}
                         </p>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${scan.status === 'completed' ? 'bg-green-50 text-green-700 border border-green-100' :
-                        scan.status === 'running' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                          'bg-red-50 text-red-700 border border-red-100'
+                      <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${scan.status === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' :
+                        scan.status === 'running' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                          'bg-red-100 text-red-700 border border-red-200'
                         }`}>
                         {scan.status}
                       </span>
                     </div>
 
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                        <span className="text-xs font-semibold text-gray-400">Total Articles</span>
-                        <span className="text-xl font-black text-gray-900">{scan._count.articles}</span>
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                      <div className="bg-slate-50 rounded-xl p-3">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Articles</p>
+                        <p className="text-xl font-black text-gray-900 leading-none">{scan._count.articles}</p>
                       </div>
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Analyzed</span>
-                        <span className="text-sm font-bold text-green-600">{scan.itemsAnalyzed}</span>
-                      </div>
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Fetched</span>
-                        <span className="text-sm font-bold text-slate-600">{scan.itemsFetched}</span>
+                      <div className="bg-green-50 rounded-xl p-3">
+                        <p className="text-[10px] font-bold text-green-700 uppercase tracking-widest mb-1">Analyzed</p>
+                        <p className="text-xl font-black text-green-700 leading-none">{scan.itemsAnalyzed}</p>
                       </div>
                     </div>
 
-                    <div className="mt-6 flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-400 group-hover:text-slate-900 transition-colors uppercase tracking-widest">
-                        View results →
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                          {scan.itemsFetched} fetched
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                        Open <ChevronRight className="w-3 h-3" />
                       </span>
                     </div>
                   </Link>
@@ -195,7 +199,7 @@ export default function ScansListPage() {
                       e.stopPropagation()
                       setScanToDelete(scan.id)
                     }}
-                    className="absolute top-4 right-4 p-2 opacity-0 group-hover:opacity-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all z-10"
+                    className="absolute top-4 right-4 p-2 md:opacity-0 md:group-hover:opacity-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all z-10"
                     title="Delete Scan"
                   >
                     <Trash2 className="w-4 h-4" />

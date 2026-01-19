@@ -65,18 +65,25 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
 
     const fetchScanDetail = async () => {
         setLoading(true)
-        console.log(`[Scan Detail] Fetching articles for scan ${params.id}...`)
+        console.log(`[Scan Detail] Fetching scan ${params.id}...`)
         try {
             const response = await fetch(`/api/research/scan/${params.id}?t=${Date.now()}`)
             const data = await response.json()
 
             if (data.scan) {
-                console.log(`[Scan Detail] Scan found:`, data.scan.id)
-                console.log(`[Scan Detail] Articles count from DB:`, data.scan.articles?.length || 0)
+                const totalArticles = data.scan.articles?.length || 0
+                const analyzedArticles = data.scan.articles?.filter((a: any) => a.analysis).length || 0
+                console.log(`[Scan Detail] Scan found: ${data.scan.id}`)
+                console.log(`[Scan Detail] Articles: ${totalArticles}, Analyzed: ${analyzedArticles}`)
+
+                if (totalArticles > 0 && analyzedArticles === 0) {
+                    console.warn('[Scan Detail] WARNING: Articles found but none have analysis data!')
+                }
+
                 setScan(data.scan)
                 setArticles(data.scan.articles || [])
             } else {
-                console.error('[Scan Detail] Scan not found in response')
+                console.error('[Scan Detail] API response missing scan data')
             }
         } catch (error) {
             console.error('[Scan Detail] Error fetching scan detail:', error)
@@ -185,114 +192,126 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                     </div>
 
                     {/* Stats Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center">
-                                    <BarChart3 className="w-5 h-5 text-white" />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                        <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2 md:mb-3">
+                                <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+                                    <BarChart3 className="w-4 h-4 text-white" />
                                 </div>
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Results</p>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</p>
                             </div>
-                            <p className="text-3xl font-bold text-gray-900">{articles.length}</p>
-                            <p className="text-xs text-gray-500 mt-1">Articles fetched</p>
+                            <p className="text-2xl md:text-3xl font-black text-gray-900 leading-none">{articles.length}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Articles</p>
                         </div>
-                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
-                                    <TrendingUp className="w-5 h-5 text-orange-600" />
+                        <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2 md:mb-3">
+                                <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                                    <TrendingUp className="w-4 h-4 text-orange-600" />
                                 </div>
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Avg Impact</p>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Avg</p>
                             </div>
-                            <p className="text-3xl font-bold text-gray-900">{avgImpactScore}</p>
-                            <div className="mt-2 w-full bg-gray-100 rounded-full h-1.5">
+                            <p className="text-2xl md:text-3xl font-black text-gray-900 leading-none">{avgImpactScore}</p>
+                            <div className="mt-2 w-full bg-slate-100 rounded-full h-1">
                                 <div
-                                    className="bg-orange-500 h-1.5 rounded-full transition-all"
+                                    className="bg-orange-500 h-1 rounded-full transition-all"
                                     style={{ width: `${avgImpactScore}%` }}
                                 />
                             </div>
                         </div>
-                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
-                                    <Zap className="w-5 h-5 text-green-600" />
+                        <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2 md:mb-3">
+                                <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                                    <Zap className="w-4 h-4 text-green-600" />
                                 </div>
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">High Impact</p>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">High</p>
                             </div>
-                            <p className="text-3xl font-bold text-green-600">{highImpactCount}</p>
-                            <p className="text-xs text-gray-500 mt-1">Score ≥ 70</p>
+                            <p className="text-2xl md:text-3xl font-black text-green-600 leading-none">{highImpactCount}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Impact ≥ 70</p>
                         </div>
-                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                                    <Calendar className="w-5 h-5 text-slate-600" />
+                        <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2 md:mb-3">
+                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                                    <Calendar className="w-4 h-4 text-slate-600" />
                                 </div>
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Scan Date</p>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date</p>
                             </div>
-                            <p className="text-base font-semibold text-gray-900">
-                                {format(new Date(scan.startedAt), 'MMM d, yyyy')}
+                            <p className="text-sm md:text-base font-black text-gray-900 leading-none">
+                                {format(new Date(scan.startedAt), 'MMM d, yy')}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1 text-right">{format(new Date(scan.startedAt), 'HH:mm')}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">{format(new Date(scan.startedAt), 'HH:mm')}</p>
                         </div>
                     </div>
 
                     {/* Filters & Content Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2 space-y-6">
+                    <div className="flex flex-col lg:flex-row gap-6">
+                        <div className="flex-1 space-y-6">
                             {/* Top Recommended */}
-                            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/50">
-                                    <h2 className="text-sm font-semibold text-gray-900">Top Recommended</h2>
+                            <div className="bg-slate-900 rounded-2xl shadow-lg border border-slate-800 overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-800 bg-slate-800/50 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4 text-amber-400" />
+                                        <h2 className="text-xs font-black text-white uppercase tracking-widest">Key Opportunities</h2>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Top 5</span>
                                 </div>
-                                <div className="divide-y divide-slate-200">
+                                <div className="divide-y divide-slate-800">
                                     {topArticles.length > 0 ? topArticles.map((article, idx) => (
                                         <div
                                             key={article.id}
                                             onClick={() => setSelectedArticle(article)}
-                                            className="p-4 hover:bg-slate-50 cursor-pointer transition-all group"
+                                            className="p-4 md:p-5 hover:bg-slate-800/50 cursor-pointer transition-all group active:bg-slate-800"
                                         >
-                                            <div className="flex items-start gap-4">
-                                                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-slate-900 text-white text-sm font-bold flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex-shrink-0 w-8 md:w-10 h-8 md:h-10 rounded-xl bg-slate-800 text-amber-400 text-sm md:text-base font-black flex items-center justify-center group-hover:bg-amber-400 group-hover:text-slate-900 transition-all border border-slate-700">
                                                     {idx + 1}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 line-clamp-1 mb-1">{article.title}</p>
-                                                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                    <p className="text-sm font-bold text-white line-clamp-1 mb-1 group-hover:text-amber-50 transition-colors uppercase tracking-tight">{article.title}</p>
+                                                    <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                                         <span>{article.source}</span>
-                                                        <span className={`font-bold ${article.analysis!.impactScore >= 70 ? 'text-green-600' :
-                                                            article.analysis!.impactScore >= 50 ? 'text-orange-600' : 'text-gray-600'
+                                                        <span className="w-1 h-1 rounded-full bg-slate-700" />
+                                                        <span className={`${article.analysis!.impactScore >= 70 ? 'text-green-500' :
+                                                            article.analysis!.impactScore >= 50 ? 'text-amber-500' : 'text-slate-400'
                                                             }`}>
-                                                            {article.analysis?.impactScore}/100
+                                                            Score {article.analysis?.impactScore}
                                                         </span>
                                                     </div>
                                                 </div>
+                                                <ChevronLeft className="w-4 h-4 text-slate-600 rotate-180 group-hover:translate-x-1 transition-transform" />
                                             </div>
                                         </div>
                                     )) : (
-                                        <div className="p-8 text-center text-gray-500 text-sm">No highly relevant articles found.</div>
+                                        <div className="p-10 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">No matching articles found.</div>
                                     )}
                                 </div>
                             </div>
 
                             {/* Filters */}
-                            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-wrap gap-4 items-end">
-                                <div className="flex-1 min-w-[200px]">
-                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Category Filter</label>
-                                    <select
-                                        value={category}
-                                        onChange={(e) => setCategory(e.target.value)}
-                                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
-                                    >
+                            <div className="bg-white border-2 border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row gap-5">
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Filter by Category</label>
+                                    <div className="flex flex-wrap gap-2">
                                         {CATEGORIES.map(cat => (
-                                            <option key={cat} value={cat}>{cat}</option>
+                                            <button
+                                                key={cat}
+                                                onClick={() => setCategory(cat)}
+                                                className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border-2 transition-all ${category === cat
+                                                    ? 'bg-slate-900 border-slate-900 text-white shadow-md'
+                                                    : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+                                                    }`}
+                                            >
+                                                {cat}
+                                            </button>
                                         ))}
-                                    </select>
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-[200px]">
-                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Min Impact Score ({minImpactScore})</label>
+                                <div className="md:w-1/3">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Min Impact ({minImpactScore})</label>
                                     <input
                                         type="range"
                                         min="0"
                                         max="100"
+                                        step="5"
                                         value={minImpactScore}
                                         onChange={(e) => setMinImpactScore(parseInt(e.target.value))}
                                         className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-slate-900"
@@ -300,44 +319,60 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                                 </div>
                             </div>
 
-                            {/* All Articles Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {filteredArticles.map(article => (
-                                    <div
-                                        key={article.id}
-                                        onClick={() => setSelectedArticle(article)}
-                                        className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 cursor-pointer transition-all group"
-                                    >
-                                        <div className="flex items-start justify-between mb-3">
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{article.source}</span>
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${article.analysis!.impactScore >= 70 ? 'bg-green-100 text-green-700' :
-                                                article.analysis!.impactScore >= 50 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-700'
-                                                }`}>
-                                                {article.analysis?.impactScore}
-                                            </span>
-                                        </div>
-                                        <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 group-hover:text-slate-800 mb-2">
-                                            {article.title}
-                                        </h3>
-                                        <p className="text-[10px] text-gray-500">
-                                            {format(new Date(article.publishedAt), 'MMM d, yyyy')}
-                                        </p>
+                            {/* All Articles Grid with Scroll */}
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between px-1">
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Analysed Articles ({filteredArticles.length})</h3>
+                                    <span className="text-[10px] font-bold text-slate-300 uppercase">Scroll to explore</span>
+                                </div>
+                                <div className="max-h-[700px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-8">
+                                        {filteredArticles.map(article => (
+                                            <div
+                                                key={article.id}
+                                                onClick={() => setSelectedArticle(article)}
+                                                className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-xl hover:border-slate-300 cursor-pointer transition-all group active:scale-[0.98]"
+                                            >
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{article.source}</span>
+                                                    <div className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-tight ${article.analysis!.impactScore >= 70 ? 'bg-green-100 text-green-700 border border-green-200' :
+                                                        article.analysis!.impactScore >= 50 ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                                        }`}>
+                                                        {article.analysis?.impactScore}P
+                                                    </div>
+                                                </div>
+                                                <h3 className="text-sm font-black text-gray-900 leading-tight mb-3 group-hover:text-slate-800 uppercase tracking-tight">
+                                                    {article.title}
+                                                </h3>
+                                                <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+                                                    <span className="text-[10px] font-bold text-gray-400">
+                                                        {format(new Date(article.publishedAt), 'MMM d, yyyy')}
+                                                    </span>
+                                                    <span className="text-[10px] font-black text-slate-900 group-hover:translate-x-1 transition-transform">
+                                                        DETAILS →
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {filteredArticles.length === 0 && (
+                                            <div className="col-span-full py-16 text-center bg-white border border-slate-200 rounded-2xl shadow-inner">
+                                                <AlertCircle className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                                                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No articles found</p>
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
-                                {filteredArticles.length === 0 && (
-                                    <div className="col-span-full py-20 text-center bg-white border border-slate-200 rounded-xl">
-                                        <p className="text-sm text-gray-500">No articles match your criteria.</p>
-                                    </div>
-                                )}
+                                </div>
                             </div>
                         </div>
 
                         {/* Sidebar: Categories */}
-                        <div className="space-y-6">
-                            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 ring-1 ring-slate-100">
+                        <div className="w-full lg:w-80 space-y-6">
+                            <div className="bg-white border-2 border-slate-100 rounded-2xl shadow-sm p-6">
                                 <div className="flex items-center gap-2 mb-6">
-                                    <BarChart3 className="w-4 h-4 text-slate-900" />
-                                    <h2 className="text-sm font-bold text-gray-900">Articles by Category</h2>
+                                    <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+                                        <Target className="w-4 h-4 text-white" />
+                                    </div>
+                                    <h2 className="text-xs font-black text-gray-900 uppercase tracking-widest">Distribution</h2>
                                 </div>
                                 <div className="space-y-4">
                                     {Object.entries(categoryDistribution)
@@ -345,12 +380,12 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                                         .map(([cat, count]) => {
                                             const percentage = Math.round((count / filteredArticles.length) * 100) || 0
                                             return (
-                                                <div key={cat} className="space-y-1.5">
-                                                    <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider">
-                                                        <span className="text-gray-600">{cat}</span>
-                                                        <span className="text-gray-900">{count}</span>
+                                                <div key={cat} className="space-y-2">
+                                                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
+                                                        <span className="text-slate-500">{cat}</span>
+                                                        <span className="text-slate-900 px-2 py-0.5 bg-slate-50 rounded-md border border-slate-100">{count}</span>
                                                     </div>
-                                                    <div className="h-1.5 bg-slate-50 rounded-full overflow-hidden border border-slate-100/50">
+                                                    <div className="h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100 shadow-inner">
                                                         <div
                                                             className="bg-slate-900 h-full rounded-full transition-all duration-700"
                                                             style={{ width: `${percentage}%` }}
@@ -369,68 +404,79 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
             {/* Article Modal */}
             {selectedArticle && selectedArticle.analysis && (
                 <div
-                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+                    className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-0 md:p-4 z-50 animate-in fade-in duration-300"
                     onClick={() => setSelectedArticle(null)}
                 >
                     <div
-                        className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200"
+                        className="bg-white w-full h-full md:h-auto md:max-h-[90vh] md:max-w-3xl md:rounded-3xl overflow-y-auto overscroll-contain touch-pan-y shadow-2xl border border-slate-200 animate-in slide-in-from-bottom md:slide-in-from-bottom-4 duration-300"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal content same as before but cleaner */}
-                        <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-5 flex items-start justify-between z-10">
-                            <div className="flex-1 pr-8">
-                                <h2 className="text-xl font-bold text-gray-900 mb-2 leading-tight">
+                        <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-slate-100 px-6 py-5 flex items-center justify-between z-20">
+                            <div className="flex-1 pr-6">
+                                <div className="flex items-center gap-3 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                                    <span>{selectedArticle.source}</span>
+                                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                    <span>{format(new Date(selectedArticle.publishedAt), 'MMM d, yyyy')}</span>
+                                </div>
+                                <h2 className="text-lg font-black text-gray-900 leading-tight uppercase tracking-tight">
                                     {selectedArticle.title}
                                 </h2>
-                                <div className="flex items-center gap-3 text-xs text-gray-500 font-medium">
-                                    <span className="uppercase tracking-widest">{selectedArticle.source}</span>
-                                    <span>·</span>
-                                    <span>{format(new Date(selectedArticle.publishedAt), 'MMM d, yyyy')} at {format(new Date(selectedArticle.publishedAt), 'HH:mm')}</span>
-                                </div>
                             </div>
                             <button
                                 onClick={() => setSelectedArticle(null)}
-                                className="flex-shrink-0 w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+                                className="flex-shrink-0 w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center transition-all border border-slate-100 active:scale-95"
                             >
-                                <X className="w-5 h-5 text-gray-500" />
+                                <X className="w-6 h-6 text-gray-900" />
                             </button>
                         </div>
 
-                        <div className="p-8 space-y-8">
-                            <a
-                                href={selectedArticle.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all shadow-lg hover:shadow-slate-200"
-                            >
-                                <ExternalLink className="w-4 h-4" />
-                                Read Source
-                            </a>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <TrendingUp className="w-4 h-4 text-slate-400" />
-                                        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Impact Score</h3>
+                        <div className="p-6 md:p-8 space-y-8 pb-20 md:pb-8">
+                            <div className="flex flex-col md:flex-row gap-4 items-center">
+                                <a
+                                    href={selectedArticle.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-black text-white bg-slate-900 rounded-2xl hover:bg-slate-800 transition-all shadow-xl active:scale-[0.98]"
+                                >
+                                    <ExternalLink className="w-4 h-4" />
+                                    OPEN SOURCE
+                                </a>
+                                <div className="hidden md:block w-px h-6 bg-slate-100" />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Share results</span>
+                                    <div className="flex gap-1">
+                                        <button className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center hover:bg-white transition-all"><Zap className="w-3 h-3 text-slate-600" /></button>
+                                        <button className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center hover:bg-white transition-all"><BarChart3 className="w-3 h-3 text-slate-600" /></button>
                                     </div>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className={`text-6xl font-black ${selectedArticle.analysis.impactScore >= 70 ? 'text-green-600' :
-                                            selectedArticle.analysis.impactScore >= 50 ? 'text-orange-600' : 'text-slate-600'
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-inner relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full -translate-y-16 translate-x-16 transition-transform group-hover:scale-110" />
+                                    <div className="flex items-center gap-2 mb-4 relative z-10">
+                                        <TrendingUp className="w-4 h-4 text-amber-400" />
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Impact Factor</h3>
+                                    </div>
+                                    <div className="flex items-baseline gap-2 relative z-10">
+                                        <span className={`text-6xl md:text-7xl font-black ${selectedArticle.analysis.impactScore >= 70 ? 'text-green-400' :
+                                            selectedArticle.analysis.impactScore >= 50 ? 'text-amber-400' : 'text-slate-400'
                                             }`}>
                                             {selectedArticle.analysis.impactScore}
                                         </span>
-                                        <span className="text-xl font-bold text-gray-300">/100</span>
+                                        <span className="text-xl font-black text-slate-700">/100</span>
                                     </div>
                                 </div>
 
-                                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+                                <div className="bg-white border-2 border-slate-100 rounded-2xl p-6">
                                     <div className="flex items-center gap-2 mb-4">
                                         <Sparkles className="w-4 h-4 text-slate-400" />
-                                        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Categories</h3>
+                                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Classification</h3>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         {selectedArticle.analysis.categories.split(',').map(cat => (
-                                            <span key={cat} className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700">
+                                            <span key={cat} className="px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black text-slate-900 uppercase tracking-widest">
                                                 {cat}
                                             </span>
                                         ))}
@@ -439,46 +485,51 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                             </div>
 
                             <div className="space-y-4">
-                                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">AI Synthesis</h3>
-                                <div className="bg-white border-2 border-slate-100 rounded-2xl p-6 shadow-sm">
-                                    <p className="text-gray-700 leading-relaxed font-medium">{selectedArticle.analysis.summary}</p>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-6 bg-slate-900 rounded-full" />
+                                    <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Strategic Summary</h3>
+                                </div>
+                                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 md:p-8">
+                                    <p className="text-gray-900 text-base font-bold leading-relaxed tracking-tight">{selectedArticle.analysis.summary}</p>
                                 </div>
                             </div>
 
                             {selectedArticle.analysis.keyTakeaways && (
                                 <div className="space-y-4">
-                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Key Takeaways</h3>
-                                    <div className="space-y-3">
+                                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Critical Insight</h3>
+                                    <div className="grid grid-cols-1 gap-2">
                                         {selectedArticle.analysis.keyTakeaways.split('|||').filter(Boolean).map((t, i) => (
-                                            <div key={i} className="flex gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                                <div className="flex-shrink-0 w-6 h-6 bg-slate-900 text-white rounded-lg flex items-center justify-center text-xs font-black">
+                                            <div key={i} className="flex gap-4 p-5 bg-white border border-slate-100 rounded-2xl group hover:border-slate-200 transition-all shadow-sm">
+                                                <div className="flex-shrink-0 w-6 h-6 bg-slate-900 text-white rounded-lg flex items-center justify-center text-[10px] font-black">
                                                     {i + 1}
                                                 </div>
-                                                <p className="text-sm font-semibold text-gray-700 leading-snug">{t}</p>
+                                                <p className="text-sm font-bold text-slate-800 leading-snug">{t}</p>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
-                            <DecisionAssessmentPanel
-                                article={selectedArticle}
-                                onSave={() => {
-                                    fetchScanDetail()
-                                }}
-                            />
+                            <div className="pt-2">
+                                <DecisionAssessmentPanel
+                                    article={selectedArticle}
+                                    onSave={() => {
+                                        fetchScanDetail()
+                                    }}
+                                />
+                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-12 md:pb-2">
                                 <div className="space-y-3">
-                                    <h3 className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">For Customers</h3>
-                                    <div className="p-5 bg-orange-50 border border-orange-100 rounded-2xl">
-                                        <p className="text-sm font-medium text-orange-950 leading-relaxed">{selectedArticle.analysis.customerAngle}</p>
+                                    <h3 className="text-[10px] font-black text-orange-500 uppercase tracking-widest ml-1">Customer Sentiment</h3>
+                                    <div className="p-6 bg-orange-50 border border-orange-100 rounded-3xl">
+                                        <p className="text-sm font-bold text-orange-950 leading-relaxed tracking-tight">{selectedArticle.analysis.customerAngle}</p>
                                     </div>
                                 </div>
                                 <div className="space-y-3">
-                                    <h3 className="text-[10px] font-bold text-green-400 uppercase tracking-widest">For Vibecoders</h3>
-                                    <div className="p-5 bg-green-50 border border-green-100 rounded-2xl">
-                                        <p className="text-sm font-medium text-green-950 leading-relaxed">{selectedArticle.analysis.vibecodersAngle}</p>
+                                    <h3 className="text-[10px] font-black text-green-500 uppercase tracking-widest ml-1">Internal Opportunity</h3>
+                                    <div className="p-6 bg-green-50 border border-green-100 rounded-3xl">
+                                        <p className="text-sm font-bold text-green-950 leading-relaxed tracking-tight">{selectedArticle.analysis.vibecodersAngle}</p>
                                     </div>
                                 </div>
                             </div>

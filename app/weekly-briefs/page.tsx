@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { format, subDays } from 'date-fns'
 import Navigation from '@/components/Navigation'
+import ConfirmModal from '@/components/ConfirmModal'
 import ImplicationsTable from '@/components/ImplicationsTable'
 import { FileText, TrendingUp, Target, AlertCircle, BookOpen, Calendar, Download, ArrowLeft, Lightbulb, CheckCircle2, XCircle, BarChart3 } from 'lucide-react'
 
@@ -48,6 +49,10 @@ export default function WeeklyBriefsPage() {
   const [startDate, setStartDate] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
 
+  // Modal states
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [alertModal, setAlertModal] = useState<{ open: boolean; title: string; message: string; variant: 'danger' | 'warning' | 'info' }>({ open: false, title: '', message: '', variant: 'info' })
+
   useEffect(() => {
     fetchBriefs()
     fetchScans()
@@ -68,7 +73,7 @@ export default function WeeklyBriefsPage() {
 
   const fetchScans = async () => {
     try {
-      const response = await fetch('/api/scans')
+      const response = await fetch('/api/research/scan')
       const data = await response.json()
       const completedScans = (data.scans || []).filter((s: Scan) => s.status === 'completed')
       setScans(completedScans)
@@ -80,21 +85,16 @@ export default function WeeklyBriefsPage() {
     }
   }
 
-  const generateBrief = async () => {
-    const modeText = mode === 'from_scan'
-      ? 'synthesis from selected scan'
-      : mode === 'weekly'
-        ? 'weekly synthesis'
-        : 'backfill synthesis (30 days)'
-
-    if (!confirm(`Generate ${modeText}?\n\nThis may take 1-2 minutes.`)) {
-      return
-    }
-
+  const handleGenerateClick = () => {
     if (mode === 'from_scan' && !selectedScanId) {
-      alert('Please select a scan first')
+      setAlertModal({ open: true, title: 'No Scan Selected', message: 'Please select a scan first before generating a synthesis.', variant: 'warning' })
       return
     }
+    setShowGenerateModal(true)
+  }
+
+  const generateBrief = async () => {
+    setShowGenerateModal(false)
 
     setGenerating(true)
     try {
@@ -132,14 +132,14 @@ export default function WeeklyBriefsPage() {
       const data = await response.json()
 
       if (data.success) {
-        alert(`Synthesis generated!\n\nWeek: ${data.week_label}\nArticles considered: ${data.items_considered}\nArticles used: ${data.items_used}`)
+        setAlertModal({ open: true, title: 'Synthesis Generated!', message: `Week: ${data.week_label}\nArticles considered: ${data.items_considered}\nArticles used: ${data.items_used}`, variant: 'info' })
         fetchBriefs()
       } else {
-        alert(`Error: ${data.error}`)
+        setAlertModal({ open: true, title: 'Error', message: data.error || 'Unknown error', variant: 'danger' })
       }
     } catch (error) {
       console.error('Error generating brief:', error)
-      alert('Error generating synthesis')
+      setAlertModal({ open: true, title: 'Error', message: 'Error generating synthesis. Please try again.', variant: 'danger' })
     } finally {
       setGenerating(false)
     }
@@ -260,7 +260,7 @@ export default function WeeklyBriefsPage() {
               </div>
 
               <button
-                onClick={generateBrief}
+                onClick={handleGenerateClick}
                 disabled={generating}
                 className="w-full px-4 py-2.5 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
               >
@@ -457,6 +457,31 @@ export default function WeeklyBriefsPage() {
           }
         }
       `}</style>
+
+      {/* Generate Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showGenerateModal}
+        title="Generate Synthesis?"
+        message={`This will generate a ${mode === 'from_scan' ? 'synthesis from the selected scan' : mode === 'weekly' ? 'weekly synthesis' : 'backfill synthesis (30 days)'}. This may take 1-2 minutes.`}
+        confirmText="Generate"
+        cancelText="Cancel"
+        onConfirm={generateBrief}
+        onCancel={() => setShowGenerateModal(false)}
+        isLoading={generating}
+        variant="info"
+      />
+
+      {/* Alert Modal */}
+      <ConfirmModal
+        isOpen={alertModal.open}
+        title={alertModal.title}
+        message={alertModal.message}
+        confirmText="OK"
+        cancelText=""
+        onConfirm={() => setAlertModal({ ...alertModal, open: false })}
+        onCancel={() => setAlertModal({ ...alertModal, open: false })}
+        variant={alertModal.variant}
+      />
     </div>
   )
 }

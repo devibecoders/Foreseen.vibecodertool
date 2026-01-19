@@ -34,9 +34,21 @@ export default function VibecodeLayoutNotion({ children }: VibecodeLayoutNotionP
 
   return (
     <div className="flex min-h-screen bg-white">
-      {/* Minimale Sidebar - Notion Stijl */}
-      <aside className="w-60 border-r border-gray-200 flex-shrink-0 bg-gray-50/50">
-        <div className="sticky top-0 h-screen flex flex-col">
+      {/* Mobile Header - Visible only on mobile */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 z-50 flex items-center px-4 justify-between">
+        <Link href="/" className="p-2 -ml-2 text-gray-500 hover:text-gray-900">
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-gray-900" />
+          <span className="font-semibold text-sm">Vibecode</span>
+        </div>
+        <div className="w-9" /> {/* Spacer for centering */}
+      </div>
+
+      {/* Minimale Sidebar - Notion Stijl (Desktop Only) */}
+      <aside className="hidden md:flex w-60 border-r border-gray-200 flex-shrink-0 bg-gray-50/50">
+        <div className="sticky top-0 h-screen flex flex-col w-full">
           {/* Header */}
           <div className="px-4 py-6 border-b border-gray-200">
             <Link href="/" className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-6 text-sm">
@@ -79,7 +91,7 @@ export default function VibecodeLayoutNotion({ children }: VibecodeLayoutNotionP
       </aside>
 
       {/* Hoofdinhoud - Volledige Breedte, Gecentreerd */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto pt-14 md:pt-0">
         <div className="max-w-4xl mx-auto">
           {children}
         </div>

@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
             // Get article categories for preference update
             const { data: article } = await supabase
                 .from('articles')
-                .select('*, analyses(*)')
+                .select('id, title, analyses(id, categories)')
                 .eq('id', article_id)
                 .single()
 

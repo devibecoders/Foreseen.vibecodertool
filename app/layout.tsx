@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, Merriweather } from 'next/font/google'
 import "./globals.css";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
@@ -27,8 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${merriweather.variable}`}>
-      <body className="font-sans antialiased bg-gray-50 text-gray-900">
+      <body className="font-sans antialiased bg-gray-50 text-gray-900 pb-16 md:pb-0">
         {children}
+        <MobileBottomNav />
       </body>
     </html>
   );

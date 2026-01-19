@@ -140,30 +140,35 @@ export default function DecisionAssessmentPanel({ article, scanId, analysisId, b
   }
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-l-4 border-slate-900 rounded-r-xl p-6 space-y-6">
+    <div className="bg-slate-50 border-2 border-slate-200 rounded-3xl p-5 md:p-8 space-y-8">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-slate-700" />
-        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Decision Assessment</h3>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center shadow-lg">
+          <TrendingUp className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none">Strategic Decision</h3>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Impact & Commitment</p>
+        </div>
       </div>
 
       {/* Action Selector - Large Buttons */}
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">
+      <div className="space-y-4">
+        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
           Required Action
         </label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           {ACTION_OPTIONS.map(option => (
             <button
               key={option.value}
               onClick={() => setDecision({ ...decision, action_required: option.value as any })}
-              className={`p-4 rounded-lg border-2 transition-all ${decision.action_required === option.value
-                ? `${option.color} ring-2 ring-offset-2 ring-slate-900`
-                : 'bg-white border-gray-200 hover:border-gray-300'
+              className={`p-5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 active:scale-95 ${decision.action_required === option.value
+                ? `bg-slate-900 border-slate-900 text-white shadow-xl translate-y-[-2px]`
+                : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200 shadow-sm'
                 }`}
             >
-              <div className="text-2xl mb-1">{option.icon}</div>
-              <div className="text-sm font-semibold">{option.label}</div>
+              <div className="text-3xl">{option.icon}</div>
+              <div className="text-xs font-black uppercase tracking-widest">{option.label}</div>
             </button>
           ))}
         </div>
@@ -171,141 +176,150 @@ export default function DecisionAssessmentPanel({ article, scanId, analysisId, b
 
       {/* Boundary Conflict Warning */}
       {conflictingBoundaries.length > 0 && (
-        <div className="bg-red-50 border-2 border-red-500 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-700 flex-shrink-0 mt-0.5" />
+        <div className="bg-red-50 border-2 border-red-500 rounded-2xl p-5 shadow-inner">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
             <div className="flex-1">
-              <p className="text-sm font-bold text-red-900 mb-2">⚠️ BOUNDARY CONFLICT DETECTED</p>
-              {conflictingBoundaries.map(boundary => (
-                <div key={boundary.id} className="mb-2">
-                  <p className="text-sm text-red-800 font-semibold">{boundary.title}</p>
-                  <p className="text-xs text-red-700 mt-1">{boundary.rationale || boundary.why_not}</p>
-                </div>
-              ))}
+              <p className="text-[10px] font-black text-red-700 uppercase tracking-widest mb-1">Boundary Violation</p>
+              <p className="text-sm font-bold text-red-900 leading-tight">This action conflicts with current operational boundaries.</p>
+              <div className="mt-3 space-y-2">
+                {conflictingBoundaries.map(boundary => (
+                  <div key={boundary.id} className="p-3 bg-white/50 rounded-xl border border-red-100">
+                    <p className="text-xs font-black text-red-800 uppercase tracking-tight">{boundary.title}</p>
+                    <p className="text-[10px] text-red-700 mt-1 font-medium leading-relaxed">{boundary.rationale || boundary.why_not}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Impact Horizon - Timeline Visual */}
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">
-          <Clock className="w-3 h-3 inline mr-1" />
+      {/* Impact Horizon - Large Vertical Buttons for Mobile */}
+      <div className="space-y-4">
+        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
           Impact Horizon
         </label>
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {HORIZON_OPTIONS.map(option => (
             <button
               key={option.value}
               onClick={() => setDecision({ ...decision, impact_horizon: option.value as any })}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all ${decision.impact_horizon === option.value
-                ? 'bg-white border-slate-900 ring-2 ring-slate-900'
-                : 'bg-white border-gray-200 hover:border-gray-300'
+              className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all active:scale-[0.98] ${decision.impact_horizon === option.value
+                ? 'bg-slate-900 border-slate-900 text-white shadow-lg'
+                : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
                 }`}
             >
-              <div className={`w-3 h-3 rounded-full ${option.color}`} />
-              <div className="flex-1 text-left">
-                <p className="text-sm font-semibold text-gray-900">{option.label}</p>
-                <p className="text-xs text-gray-500">{option.description}</p>
+              <div className={`w-3 h-3 rounded-full shadow-inner ${option.color}`} />
+              <div className="text-left">
+                <p className="text-xs font-black uppercase tracking-widest leading-none mb-1">{option.label}</p>
+                <p className={`text-[10px] font-bold ${decision.impact_horizon === option.value ? 'text-slate-400' : 'text-slate-400'}`}>{option.description}</p>
               </div>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Confidence Score - 1-5 Meter */}
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">
+      {/* Confidence Score */}
+      <div className="space-y-4">
+        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
           Confidence Level
         </label>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2">
           {[1, 2, 3, 4, 5].map(score => (
             <button
               key={score}
               onClick={() => setDecision({ ...decision, confidence_score: score })}
-              className={`flex-1 h-12 rounded-lg border-2 transition-all font-bold ${decision.confidence_score >= score
+              className={`flex-1 h-14 rounded-2xl border-2 transition-all font-black text-lg active:scale-90 shadow-sm ${decision.confidence_score >= score
                 ? 'bg-slate-900 text-white border-slate-900'
-                : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                : 'bg-white text-slate-200 border-slate-100 hover:border-slate-200'
                 }`}
             >
               {score}
             </button>
           ))}
         </div>
-        <div className="flex justify-between text-xs text-gray-500 mt-2">
-          <span>Low</span>
-          <span>High</span>
-        </div>
       </div>
 
       {/* Analysis Fields */}
-      <div className="space-y-3">
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
-            Risk if Ignored
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+            Risk Mitigation
           </label>
           <textarea
             value={decision.risk_if_ignored}
             onChange={(e) => setDecision({ ...decision, risk_if_ignored: e.target.value })}
-            rows={2}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
-            placeholder="What happens if we don't act on this?"
+            rows={3}
+            className="w-full px-5 py-4 text-sm font-bold bg-white border-2 border-slate-100 rounded-3xl focus:outline-none focus:border-slate-900 transition-all placeholder:text-slate-300 placeholder:font-medium resize-none"
+            placeholder="Potential downsides..."
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
-            Advantage if Early
+        <div className="space-y-2">
+          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+            Competitive Gain
           </label>
           <textarea
             value={decision.advantage_if_early}
             onChange={(e) => setDecision({ ...decision, advantage_if_early: e.target.value })}
-            rows={2}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
-            placeholder="What do we gain by acting now?"
+            rows={3}
+            className="w-full px-5 py-4 text-sm font-bold bg-white border-2 border-slate-100 rounded-3xl focus:outline-none focus:border-slate-900 transition-all placeholder:text-slate-300 placeholder:font-medium resize-none"
+            placeholder="Strategic upside..."
           />
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="space-y-2 pt-4 border-t border-gray-200">
+      {/* Action Buttons - Large & Spaced */}
+      <div className="flex flex-col gap-3 pt-6 border-t border-slate-200">
         <button
           onClick={handleSave}
           disabled={saving || (conflictingBoundaries.length > 0 && decision.action_required === 'integrate')}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
+          className="w-full h-16 flex items-center justify-center gap-3 bg-slate-900 text-white rounded-2xl text-base font-black uppercase tracking-widest hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-300 border-2 border-slate-900 transition-all shadow-xl shadow-slate-200 active:scale-[0.98]"
         >
           {saving ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Saving...
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Processing...
             </>
           ) : (
             <>
-              <Save className="w-4 h-4" />
-              Save Decision
+              <Save className="w-5 h-5" />
+              Commit Decision
             </>
           )}
         </button>
 
-        {(decision.action_required === 'monitor' || decision.action_required === 'experiment') && (
-          <button
-            onClick={handleAddToRadar}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all"
-          >
-            <RadarIcon className="w-4 h-4" />
-            Add to Tech Radar ({decision.action_required === 'monitor' ? 'Assess' : 'Trial'})
-          </button>
-        )}
+        <div className="grid grid-cols-2 gap-3">
+          {(decision.action_required === 'monitor' || decision.action_required === 'experiment') && (
+            <button
+              onClick={handleAddToRadar}
+              className="h-14 flex items-center justify-center gap-2 bg-white border-2 border-blue-100 text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-all active:scale-95"
+            >
+              <RadarIcon className="w-4 h-4" />
+              Add to Radar
+            </button>
+          )}
 
-        {decision.action_required === 'ignore' && (
+          {decision.action_required === 'ignore' && (
+            <button
+              onClick={handleCreateBoundary}
+              className="h-14 flex items-center justify-center gap-2 bg-white border-2 border-red-100 text-red-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all active:scale-95"
+            >
+              <Shield className="w-4 h-4" />
+              Add Boundary
+            </button>
+          )}
+
           <button
-            onClick={handleCreateBoundary}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-all"
+            className="h-14 flex items-center justify-center gap-2 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 col-span-1"
+            onClick={() => alert('Opening full assessment editor...')}
           >
-            <Shield className="w-4 h-4" />
-            Create Boundary Rule
+            Full Details
           </button>
-        )}
+        </div>
       </div>
     </div>
   )

@@ -18,10 +18,10 @@ export async function GET(
     const { data: scan, error } = await supabase
       .from('scans')
       .select(`
-        *,
+        id, started_at, completed_at, items_fetched, items_analyzed, status,
         articles (
-          *,
-          analyses (*)
+          id, title, url, source, published_at, scan_id,
+          analyses (id, summary, categories, impact_score, relevance_reason, customer_angle, vibecoders_angle, key_takeaways)
         )
       `)
       .eq('id', scanId)
@@ -41,23 +41,29 @@ export async function GET(
       completedAt: scan.completed_at,
       itemsFetched: scan.items_fetched,
       itemsAnalyzed: scan.items_analyzed,
-      articles: (scan.articles || []).map((article: any) => ({
-        id: article.id,
-        title: article.title,
-        url: article.url,
-        source: article.source,
-        publishedAt: article.published_at,
-        scanId: article.scan_id,
-        analysis: article.analyses?.[0] ? {
-          summary: article.analyses[0].summary,
-          categories: article.analyses[0].categories,
-          impactScore: article.analyses[0].impact_score,
-          relevanceReason: article.analyses[0].relevance_reason,
-          customerAngle: article.analyses[0].customer_angle,
-          vibecodersAngle: article.analyses[0].vibecoders_angle,
-          keyTakeaways: article.analyses[0].key_takeaways
-        } : null
-      }))
+      articles: (scan.articles || []).map((article: any) => {
+        // Handle both array and object responses from Supabase for the 1-to-1 analyses relation
+        const analyses = article.analyses
+        const analysisData = Array.isArray(analyses) ? analyses[0] : analyses
+
+        return {
+          id: article.id,
+          title: article.title,
+          url: article.url,
+          source: article.source,
+          publishedAt: article.published_at,
+          scanId: article.scan_id,
+          analysis: analysisData ? {
+            summary: analysisData.summary,
+            categories: analysisData.categories,
+            impactScore: analysisData.impact_score,
+            relevanceReason: analysisData.relevance_reason,
+            customerAngle: analysisData.customer_angle,
+            vibecodersAngle: analysisData.vibecoders_angle,
+            keyTakeaways: analysisData.key_takeaways
+          } : null
+        }
+      })
     }
 
     return NextResponse.json(

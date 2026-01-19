@@ -48,7 +48,7 @@ export default function Navigation() {
             </span>
           </Link>
 
-          <nav className="flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-1">
             {/* Dashboard - Home */}
             <Link
               href="/dashboard"

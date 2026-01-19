@@ -154,22 +154,23 @@ export default function DecisionsInboxPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="w-4 h-4 text-slate-700" />
-            <h2 className="text-sm font-semibold text-gray-900">Filters</h2>
+        <div className="bg-white/50 backdrop-blur-sm border-2 border-slate-100 rounded-3xl p-5 md:p-6 mb-8 shadow-sm">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center shadow-md">
+              <Filter className="w-4 h-4 text-white" />
+            </div>
+            <h2 className="text-xs font-black text-gray-900 uppercase tracking-widest">Filter Archive</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">Scan</label>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Scan Session</label>
               <select
                 value={filterScan}
                 onChange={(e) => setFilterScan(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-4 py-3 text-sm font-bold bg-white border-2 border-slate-50 rounded-2xl focus:outline-none focus:border-slate-900 transition-all appearance-none"
               >
-                <option value="all">All Scans</option>
+                <option value="all">All Sessions</option>
                 {scanStats.map(scan => (
                   <option key={scan.id} value={scan.id}>
                     {format(new Date(scan.started_at), 'MMM d, HH:mm')}
@@ -178,12 +179,12 @@ export default function DecisionsInboxPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">Action</label>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Priority Action</label>
               <select
                 value={filterAction}
                 onChange={(e) => setFilterAction(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-4 py-3 text-sm font-bold bg-white border-2 border-slate-50 rounded-2xl focus:outline-none focus:border-slate-900 transition-all appearance-none"
               >
                 <option value="all">All Actions</option>
                 <option value="ignore">Ignore</option>
@@ -193,12 +194,12 @@ export default function DecisionsInboxPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">Horizon</label>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Impact Horizon</label>
               <select
                 value={filterHorizon}
                 onChange={(e) => setFilterHorizon(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-4 py-3 text-sm font-bold bg-white border-2 border-slate-50 rounded-2xl focus:outline-none focus:border-slate-900 transition-all appearance-none"
               >
                 <option value="all">All Horizons</option>
                 <option value="direct">Direct (0-2 weeks)</option>
@@ -210,9 +211,9 @@ export default function DecisionsInboxPage() {
             <div className="flex items-end">
               <button
                 onClick={fetchData}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all"
+                className="w-full h-12 flex items-center justify-center gap-2 px-6 py-2 text-xs font-black text-white bg-slate-900 rounded-2xl hover:bg-slate-800 transition-all shadow-lg active:scale-95 uppercase tracking-widest"
               >
-                Refresh
+                Update Result
               </button>
             </div>
           </div>
@@ -220,44 +221,56 @@ export default function DecisionsInboxPage() {
 
         {/* Decision List Grouped by Scan */}
         {loading ? (
-          <div className="flex items-center justify-center py-24">
+          <div className="flex items-center justify-center py-32">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-slate-900 mb-4"></div>
-              <p className="text-sm text-gray-600">Loading decisions...</p>
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-slate-900 mb-6"></div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Retrieving intelligence...</p>
             </div>
           </div>
         ) : filteredDecisions.length === 0 ? (
-          <div className="text-center py-24 bg-white border border-slate-200 rounded-xl">
-            <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">No decisions yet.</p>
-            <p className="text-xs text-gray-400 mt-1">Make decisions on articles from the Dashboard.</p>
+          <div className="text-center py-32 bg-white border-2 border-slate-100 rounded-3xl shadow-inner">
+            <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Inbox className="w-8 h-8 text-slate-200" />
+            </div>
+            <p className="text-sm font-black text-slate-900 uppercase tracking-widest">No decisions recorded</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 max-w-xs mx-auto">Run a weekly scan to begin strategic assessment of incoming articles.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {Object.entries(decisionsByScan).map(([scanId, scanDecisions]) => (
-              <div key={scanId} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+              <div key={scanId} className="bg-white border-2 border-slate-100 rounded-3xl shadow-sm overflow-hidden">
                 {/* Scan Header */}
                 <button
                   onClick={() => toggleScanExpand(scanId)}
-                  className="w-full px-5 py-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-all"
+                  className="w-full px-6 py-5 flex items-center justify-between bg-slate-50 hover:bg-slate-100/50 transition-all active:bg-slate-100"
                 >
-                  <div className="flex items-center gap-3">
-                    <BarChart3 className="w-4 h-4 text-slate-600" />
-                    <span className="font-semibold text-gray-900">{getScanLabel(scanId)}</span>
-                    <span className="text-xs text-gray-500 bg-slate-200 px-2 py-0.5 rounded-full">
-                      {scanDecisions.length} decisions
-                    </span>
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                      <BarChart3 className="w-5 h-5 text-slate-900" />
+                    </div>
+                    <div className="text-left">
+                      <span className="block text-xs font-black text-gray-900 uppercase tracking-widest">{getScanLabel(scanId)}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                        {scanDecisions.length} Decisions Logged
+                      </span>
+                    </div>
                   </div>
-                  {expandedScans.has(scanId) ? (
-                    <ChevronUp className="w-5 h-5 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
-                  )}
+                  <div className="flex items-center gap-4">
+                    {expandedScans.has(scanId) ? (
+                      <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
+                        <ChevronUp className="w-4 h-4" />
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center">
+                        <ChevronDown className="w-4 h-4" />
+                      </div>
+                    )}
+                  </div>
                 </button>
 
                 {/* Decisions List */}
                 {expandedScans.has(scanId) && (
-                  <div className="divide-y divide-slate-200">
+                  <div className="p-4 md:p-6 space-y-4 bg-white">
                     {scanDecisions.map(decision => {
                       const article = decision.article
                       if (!article) return null
@@ -265,57 +278,55 @@ export default function DecisionsInboxPage() {
                       return (
                         <div
                           key={decision.id}
-                          className="p-5 hover:bg-slate-50 transition-all cursor-pointer group"
+                          className="bg-slate-50 border border-slate-200 rounded-2xl p-5 md:p-6 hover:shadow-xl hover:border-slate-300 transition-all cursor-pointer group active:scale-[0.99]"
                           onClick={() => window.open(article.url, '_blank')}
                         >
-                          <div className="flex items-start gap-4">
+                          <div className="flex flex-col md:flex-row md:items-start gap-4">
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-base font-semibold text-gray-900 group-hover:text-slate-800 mb-2">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{article.source}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-2 py-1 rounded-lg text-[9px] font-black border uppercase tracking-widest ${getActionColor(decision.action_required)}`}>
+                                    {decision.action_required}
+                                  </span>
+                                </div>
+                              </div>
+                              <h3 className="text-sm md:text-base font-black text-gray-900 mb-3 uppercase tracking-tight leading-tight group-hover:text-slate-800">
                                 {article.title}
                               </h3>
 
-                              <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
-                                <span className="font-medium">{article.source}</span>
-                                <span>·</span>
-                                <span>{format(new Date(article.published_at), 'MMM d, yyyy')}</span>
+                              <div className="flex flex-wrap items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="w-3 h-3 text-slate-400" />
+                                  <span>{decision.impact_horizon}</span>
+                                  <div className={`w-1.5 h-1.5 rounded-full ${getHorizonColor(decision.impact_horizon)}`} />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Target className="w-3 h-3 text-slate-400" />
+                                  <span>Conf {decision.confidence}/5</span>
+                                </div>
                                 {article.analyses?.[0] && (
-                                  <>
-                                    <span>·</span>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold ${article.analyses[0].impact_score >= 70 ? 'bg-green-100 text-green-700' :
-                                        article.analyses[0].impact_score >= 50 ? 'bg-yellow-100 text-yellow-700' :
-                                          'bg-gray-100 text-gray-700'
-                                      }`}>
-                                      Impact: {article.analyses[0].impact_score}
-                                    </span>
-                                  </>
+                                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-900 text-white rounded-md">
+                                    <span>Impact: {article.analyses[0].impact_score}</span>
+                                  </div>
                                 )}
                               </div>
 
                               {article.analyses?.[0]?.summary && (
-                                <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                                  {article.analyses[0].summary}
+                                <p className="text-xs font-medium text-gray-500 line-clamp-2 md:line-clamp-none bg-white p-4 rounded-xl border border-slate-100 shadow-inner italic">
+                                  &quot;{article.analyses[0].summary}&quot;
                                 </p>
                               )}
-
-                              <div className="flex items-center gap-3">
-                                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold border ${getActionColor(decision.action_required)}`}>
-                                  {decision.action_required.toUpperCase()}
-                                </span>
-
-                                <div className="flex items-center gap-1.5">
-                                  <Clock className="w-3 h-3 text-gray-500" />
-                                  <span className="text-xs text-gray-600">{decision.impact_horizon}</span>
-                                  <div className={`w-2 h-2 rounded-full ${getHorizonColor(decision.impact_horizon)}`} />
-                                </div>
-
-                                <div className="flex items-center gap-1.5">
-                                  <Target className="w-3 h-3 text-gray-500" />
-                                  <span className="text-xs text-gray-600">Confidence: {decision.confidence}/5</span>
-                                </div>
-                              </div>
                             </div>
 
-                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-slate-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
+                            <div className="flex md:flex-col items-center justify-between md:justify-start gap-2 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
+                              <button className="flex-1 md:w-24 h-10 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 shadow-lg">
+                                Open Source
+                              </button>
+                              <button className="flex-1 md:w-24 h-10 bg-white border border-slate-200 text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95">
+                                Edit
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )
