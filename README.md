@@ -112,6 +112,34 @@ ANTHROPIC_API_KEY=sk-ant-...
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Technical architecture
 - [Vibecode Core](/vibecode-core) - Team knowledge base
 
+## Vercel Deployment
+
+### Required Environment Variables
+
+Set these in Vercel Dashboard → Settings → Environment Variables for **Production** and **Preview**:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | ✅ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key | ✅ |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only) | ✅ |
+| `OPENAI_API_KEY` | OpenAI API key for LLM analysis | ✅* |
+| `ANTHROPIC_API_KEY` | Anthropic API key (alternative to OpenAI) | ✅* |
+| `CRON_SECRET` | Secret for Vercel Cron job authentication | Optional |
+
+*One of `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is required.
+
+### Build Commands
+
+The default Vercel settings work:
+- **Build Command**: `npm run build`
+- **Output Directory**: `.next`
+- **Install Command**: `npm install`
+
+### Cron Jobs
+
+Weekly article scan runs every Monday at 9:00 AM (configured in `vercel.json`).
+
 ## License
 
 Private use only. Not for public distribution.

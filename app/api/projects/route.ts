@@ -3,36 +3,26 @@
  *
  * CRUD operations for projects table.
  * Supports real-time updates for the Kanban board.
- *
- * @route GET /api/projects - List all projects
- * @route POST /api/projects - Create a new project
- * @route PATCH /api/projects - Update a project (including status changes from drag-drop)
- * @route DELETE /api/projects - Delete/archive a project
  */
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase/server'
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/projects
- * Fetch all projects, optionally filtered by archived status
+ * GET /api/projects - List all projects
  */
 export async function GET(request: Request) {
     try {
+        const supabase = supabaseAdmin()
         const { searchParams } = new URL(request.url)
         const showArchived = searchParams.get('archived') === 'true'
 
-        let query = supabase
+        const { data, error } = await supabase
             .from('projects')
             .select('*')
             .eq('is_archived', showArchived)
             .order('updated_at', { ascending: false })
-
-        const { data, error } = await query
 
         if (error) {
             console.error('Error fetching projects:', error)
@@ -47,11 +37,11 @@ export async function GET(request: Request) {
 }
 
 /**
- * POST /api/projects
- * Create a new project
+ * POST /api/projects - Create a new project
  */
 export async function POST(request: Request) {
     try {
+        const supabase = supabaseAdmin()
         const body = await request.json()
 
         const { data, error } = await supabase
@@ -84,11 +74,11 @@ export async function POST(request: Request) {
 }
 
 /**
- * PATCH /api/projects
- * Update an existing project (supports partial updates for drag-drop status changes)
+ * PATCH /api/projects - Update an existing project
  */
 export async function PATCH(request: Request) {
     try {
+        const supabase = supabaseAdmin()
         const body = await request.json()
         const { id, ...updates } = body
 
@@ -96,7 +86,6 @@ export async function PATCH(request: Request) {
             return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
         }
 
-        // Map frontend field names to database column names
         const fieldMapping: Record<string, string> = {
             briefing_filename: 'briefing',
             step_plan_filename: 'step_plan',
@@ -104,7 +93,6 @@ export async function PATCH(request: Request) {
             step_plan_url: 'step_plan_url'
         }
 
-        // Remove undefined values and map field names
         const cleanUpdates = Object.fromEntries(
             Object.entries(updates)
                 .filter(([_, v]) => v !== undefined)
@@ -131,11 +119,11 @@ export async function PATCH(request: Request) {
 }
 
 /**
- * DELETE /api/projects
- * Archive a project (soft delete) or permanently delete
+ * DELETE /api/projects - Archive or delete a project
  */
 export async function DELETE(request: Request) {
     try {
+        const supabase = supabaseAdmin()
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
         const permanent = searchParams.get('permanent') === 'true'
@@ -145,22 +133,13 @@ export async function DELETE(request: Request) {
         }
 
         if (permanent) {
-            const { error } = await supabase
-                .from('projects')
-                .delete()
-                .eq('id', id)
-
+            const { error } = await supabase.from('projects').delete().eq('id', id)
             if (error) {
                 console.error('Error deleting project:', error)
                 return NextResponse.json({ error: error.message }, { status: 500 })
             }
         } else {
-            // Soft delete (archive)
-            const { error } = await supabase
-                .from('projects')
-                .update({ is_archived: true })
-                .eq('id', id)
-
+            const { error } = await supabase.from('projects').update({ is_archived: true }).eq('id', id)
             if (error) {
                 console.error('Error archiving project:', error)
                 return NextResponse.json({ error: error.message }, { status: 500 })

@@ -7,12 +7,10 @@
  * @route POST /api/projects/upload - Upload a PDF file
  */
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase/server'
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// Force dynamic rendering to prevent build-time errors
+export const dynamic = 'force-dynamic'
 
 const BUCKET_NAME = 'project-documents'
 
@@ -22,6 +20,8 @@ const BUCKET_NAME = 'project-documents'
  */
 export async function POST(request: Request) {
     try {
+        const supabase = supabaseAdmin()
+
         const formData = await request.formData()
         const file = formData.get('file') as File
         const projectId = formData.get('projectId') as string
