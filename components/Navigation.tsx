@@ -7,12 +7,27 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { ChevronDown, BarChart3, FileText, CheckSquare, Home, Sparkles } from 'lucide-react'
 
 export default function Navigation() {
   const pathname = usePathname()
   const [showResearchMenu, setShowResearchMenu] = useState(false)
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const handleMouseEnter = useCallback(() => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current)
+      closeTimeoutRef.current = null
+    }
+    setShowResearchMenu(true)
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setShowResearchMenu(false)
+    }, 300) // 300ms delay before closing
+  }, [])
 
   const isDashboardActive = pathname === '/' || pathname === '/dashboard'
   const isResearchActive = pathname?.startsWith('/research') ||
@@ -48,8 +63,8 @@ export default function Navigation() {
             {/* Research Hub with dropdown */}
             <div
               className="relative"
-              onMouseEnter={() => setShowResearchMenu(true)}
-              onMouseLeave={() => setShowResearchMenu(false)}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             >
               <Link
                 href="/research"

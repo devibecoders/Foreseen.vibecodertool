@@ -167,7 +167,7 @@ export default function ResearchPage() {
                                 )}
                             </button>
                             <Link
-                                href="/"
+                                href="/scans"
                                 className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                             >
                                 View Results

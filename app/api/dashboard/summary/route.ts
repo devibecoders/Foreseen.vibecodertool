@@ -23,10 +23,11 @@ export async function GET() {
         const userId = 'default-user'
         const weekLabel = getCurrentWeekLabel()
 
-        // 1. Latest scan
+        // 1. Latest COMPLETED scan (for accurate unreviewed count)
         const { data: scans } = await supabase
             .from('scans')
             .select('id, started_at, completed_at, items_fetched, items_analyzed, status')
+            .eq('status', 'completed')
             .order('started_at', { ascending: false })
             .limit(1)
 
@@ -104,16 +105,17 @@ export async function GET() {
             }))
         }
 
-        // 6. Projects
+        // 6. Projects (exclude archived, matching Projects page API)
         const { data: projects } = await supabase
             .from('projects')
             .select('id, title, status, created_at')
+            .eq('is_archived', false)
             .order('created_at', { ascending: false })
-            .limit(5)
+            .limit(10)
 
-        const activeCount = (projects || []).filter(p => p.status !== 'completed').length
+        const activeCount = (projects || []).filter(p => p.status?.toLowerCase() !== 'completed').length
         const completedThisMonth = (projects || []).filter(p => {
-            if (p.status !== 'completed') return false
+            if (p.status?.toLowerCase() !== 'completed') return false
             const created = new Date(p.created_at)
             const now = new Date()
             return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
