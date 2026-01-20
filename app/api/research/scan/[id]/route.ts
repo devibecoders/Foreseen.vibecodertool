@@ -34,36 +34,50 @@ export async function GET(
 
     console.log(`[Scan Detail ${scanId}] Fetched. Articles: ${scan.articles?.length || 0}`)
 
+    // Fetch signal weights (Signals v1)
+    const { data: weights } = await supabase
+      .from('user_signal_weights')
+      .select('*')
+      .eq('user_id', 'default-user')
+
+    const { scoreArticlesV2 } = await import('@/lib/signals/scoreArticles')
+
     // Transform article data for frontend
+    const articles = (scan.articles || []).map((article: any) => {
+      // Handle both array and object responses from Supabase for the 1-to-1 analyses relation
+      const analyses = article.analyses
+      const analysisData = Array.isArray(analyses) ? analyses[0] : analyses
+
+      return {
+        id: article.id,
+        title: article.title,
+        url: article.url,
+        source: article.source,
+        publishedAt: article.published_at,
+        scanId: article.scan_id,
+        analysis: analysisData ? {
+          summary: analysisData.summary,
+          categories: analysisData.categories,
+          impactScore: analysisData.impact_score,
+          relevanceReason: analysisData.relevance_reason,
+          customerAngle: analysisData.customer_angle,
+          vibecodersAngle: analysisData.vibecoders_angle,
+          keyTakeaways: analysisData.key_takeaways
+        } : null
+      }
+    })
+
+    // Score and rank articles
+    const scoredArticles = scoreArticlesV2(articles, weights || [])
+    scoredArticles.sort((a, b) => b.adjusted_score - a.adjusted_score)
+
     const transformedScan = {
       ...scan,
       startedAt: scan.started_at,
       completedAt: scan.completed_at,
       itemsFetched: scan.items_fetched,
       itemsAnalyzed: scan.items_analyzed,
-      articles: (scan.articles || []).map((article: any) => {
-        // Handle both array and object responses from Supabase for the 1-to-1 analyses relation
-        const analyses = article.analyses
-        const analysisData = Array.isArray(analyses) ? analyses[0] : analyses
-
-        return {
-          id: article.id,
-          title: article.title,
-          url: article.url,
-          source: article.source,
-          publishedAt: article.published_at,
-          scanId: article.scan_id,
-          analysis: analysisData ? {
-            summary: analysisData.summary,
-            categories: analysisData.categories,
-            impactScore: analysisData.impact_score,
-            relevanceReason: analysisData.relevance_reason,
-            customerAngle: analysisData.customer_angle,
-            vibecodersAngle: analysisData.vibecoders_angle,
-            keyTakeaways: analysisData.key_takeaways
-          } : null
-        }
-      })
+      articles: scoredArticles
     }
 
     return NextResponse.json(

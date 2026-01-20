@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import Navigation from '@/components/Navigation'
-import { BarChart3, FileText, CheckSquare, Play, Sparkles, ChevronRight, Clock, AlertCircle } from 'lucide-react'
+import { BarChart3, FileText, CheckSquare, Play, Sparkles, ChevronRight, Clock, AlertCircle, Brain } from 'lucide-react'
 
 interface LastScan {
     id: string
@@ -55,7 +55,18 @@ export default function ResearchPage() {
                 setLastBrief(briefData.brief)
             }
 
-            // TODO: Fetch decision stats when endpoint is ready
+            // Fetch decision stats
+            const decisionRes = await fetch('/api/decisions')
+            const decisionData = await decisionRes.json()
+            if (decisionData.decisions) {
+                const openCount = decisionData.decisions.filter(
+                    (d: any) => d.action_required === 'experiment' || d.action_required === 'monitor'
+                ).length
+                setDecisionStats({
+                    total: decisionData.decisions.length,
+                    open: openCount
+                })
+            }
         } catch (error) {
             console.error('Error fetching data:', error)
         } finally {
@@ -103,8 +114,8 @@ export default function ResearchPage() {
                     </div>
                 </div>
 
-                {/* Three Blocks Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                {/* Four Blocks Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {/* Weekly Scan Block */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden">
                         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
@@ -266,6 +277,42 @@ export default function ResearchPage() {
                             >
                                 History
                                 <ChevronRight className="w-4 h-4" />
+                            </Link>
+                        </div>
+                    </div>
+
+                    {/* Signals Block */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden border-b-4 border-b-purple-200">
+                        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Brain className="w-4 h-4 text-slate-700" />
+                                <h2 className="text-sm font-semibold text-gray-900">Signals</h2>
+                            </div>
+                        </div>
+                        <div className="p-5">
+                            {loading ? (
+                                <div className="h-24 flex items-center justify-center">
+                                    <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <p className="text-sm text-gray-600">
+                                        How Foreseen ranks your news based on your decisions
+                                    </p>
+                                    <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
+                                        <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wider mb-1">Algorithm Status</p>
+                                        <p className="text-xs text-purple-900 font-medium">Learning from your decisions</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="px-5 pb-5 pt-0 space-y-3">
+                            <Link
+                                href="/research/signals"
+                                className="w-full h-12 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
+                            >
+                                <Brain className="w-4 h-4" />
+                                View Signals
                             </Link>
                         </div>
                     </div>

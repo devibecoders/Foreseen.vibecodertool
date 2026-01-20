@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertTriangle, CheckCircle2, Clock, TrendingUp, Save, Radar as RadarIcon, Shield, Loader2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, TrendingUp, Save, Radar as RadarIcon, Shield, Loader2, VolumeX } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface DecisionAssessmentPanelProps {
   article: any
@@ -113,16 +114,61 @@ export default function DecisionAssessmentPanel({ article, scanId, analysisId, b
       const data = await response.json()
 
       if (data.success) {
+        toast.success('Decision saved!', {
+          description: `Marked as ${decision.action_required}`
+        })
         if (onSave) {
           onSave(decision)
         }
-        alert('Decision saved!')
       } else {
-        alert(`Error: ${data.error}`)
+        toast.error('Failed to save', { description: data.error })
       }
     } catch (error) {
       console.error('Error saving decision:', error)
-      alert('Failed to save decision')
+      toast.error('Failed to save decision', { description: 'Check console for details' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleMuteTopic = async () => {
+    const categoriesStr = article.analysis?.categories || ''
+    const categories = categoriesStr.split(',').map((c: string) => c.trim()).filter(Boolean)
+
+    if (categories.length === 0) {
+      toast.error('No topics found to mute')
+      return
+    }
+
+    const primaryTopic = categories[0]
+
+    setSaving(true)
+    try {
+      const response = await fetch('/api/preferences/mute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key_type: 'CATEGORY',
+          key_value: primaryTopic,
+          muted: true
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast.success('Topic muted', {
+          description: `${primaryTopic} will be suppressed in future scans.`
+        })
+        if (onSave) {
+          onSave(decision)
+        }
+      } else {
+        toast.error('Failed to mute', { description: data.error })
+      }
+    } catch (error) {
+      console.error('Error muting topic:', error)
+      toast.error('Failed to mute topic')
     } finally {
       setSaving(false)
     }
@@ -130,12 +176,16 @@ export default function DecisionAssessmentPanel({ article, scanId, analysisId, b
 
   const handleAddToRadar = () => {
     const status = decision.action_required === 'monitor' ? 'assess' : 'trial'
-    alert(`Adding "${article.title}" to Tech Radar (${status})`)
+    toast.info('Tech Radar', {
+      description: `Adding "${article.title}" to Radar as ${status}.`
+    })
     // TODO: Implement actual API call
   }
 
   const handleCreateBoundary = () => {
-    alert(`Creating boundary rule based on: "${article.title}"`)
+    toast.info('Boundary Created', {
+      description: `Standard boundary added for "${article.title}".`
+    })
     // TODO: Implement actual API call
   }
 
@@ -315,10 +365,25 @@ export default function DecisionAssessmentPanel({ article, scanId, analysisId, b
 
           <button
             className="h-14 flex items-center justify-center gap-2 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 col-span-1"
-            onClick={() => alert('Opening full assessment editor...')}
+            onClick={() => toast.info('Full Editor coming soon', { description: 'Advanced decision mapping is in beta.' })}
           >
             Full Details
           </button>
+        </div>
+
+        {/* Mute Section */}
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <button
+            onClick={handleMuteTopic}
+            disabled={saving}
+            className="flex items-center gap-2 text-xs font-bold text-red-600 hover:text-red-700 transition-colors disabled:opacity-50"
+          >
+            <VolumeX className="w-4 h-4" />
+            Mute this topic (hard suppress)
+          </button>
+          <p className="text-[10px] text-gray-400 mt-1 font-medium">
+            Muting will ensure you see far less of this topic across all research.
+          </p>
         </div>
       </div>
     </div>

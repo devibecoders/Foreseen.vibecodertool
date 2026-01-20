@@ -13,6 +13,7 @@ import ConfirmModal from '@/components/ConfirmModal'
 import { useRouter } from 'next/navigation'
 
 interface Analysis {
+    id?: string
     summary: string
     categories: string
     impactScore: number
@@ -30,6 +31,14 @@ interface Article {
     publishedAt: string
     scanId: string | null
     analysis: Analysis | null
+    base_score?: number
+    preference_delta?: number
+    adjusted_score?: number
+    reasons?: {
+        boosted: Array<{ key: string, weight: number }>
+        suppressed: Array<{ key: string, weight: number }>
+    }
+    isPersonalized?: boolean
 }
 
 interface Scan {
@@ -117,28 +126,32 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
 
     const filteredArticles = articles.filter(article => {
         if (!article.analysis) return false
+        const score = article.adjusted_score ?? article.analysis.impactScore
         if (category !== 'ALL' && !article.analysis.categories.includes(category)) return false
-        if (article.analysis.impactScore < minImpactScore) return false
+        if (score < minImpactScore) return false
         return true
+    }).sort((a, b) => {
+        const scoreA = a.adjusted_score ?? a.analysis?.impactScore ?? 0
+        const scoreB = b.adjusted_score ?? b.analysis?.impactScore ?? 0
+        return scoreB - scoreA
     })
 
-    const topArticles = [...filteredArticles]
-        .sort((a, b) => (b.analysis?.impactScore || 0) - (a.analysis?.impactScore || 0))
-        .slice(0, 5)
+    const topArticles = filteredArticles.slice(0, 5)
 
     const categoryDistribution = filteredArticles.reduce((acc, article) => {
         if (!article.analysis) return acc
         article.analysis.categories.split(',').forEach(cat => {
-            acc[cat] = (acc[cat] || 0) + 1
+            const trimmedCat = cat.trim()
+            if (trimmedCat) acc[trimmedCat] = (acc[trimmedCat] || 0) + 1
         })
         return acc
     }, {} as Record<string, number>)
 
     const avgImpactScore = filteredArticles.length > 0
-        ? Math.round(filteredArticles.reduce((sum, a) => sum + (a.analysis?.impactScore || 0), 0) / filteredArticles.length)
+        ? Math.round(filteredArticles.reduce((sum, a) => sum + (a.adjusted_score ?? a.analysis?.impactScore ?? 0), 0) / filteredArticles.length)
         : 0
 
-    const highImpactCount = filteredArticles.filter(a => a.analysis && a.analysis.impactScore >= 70).length
+    const highImpactCount = filteredArticles.filter(a => (a.adjusted_score ?? a.analysis?.impactScore ?? 0) >= 70).length
 
     if (loading) {
         return (
@@ -267,14 +280,29 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-bold text-white line-clamp-1 mb-1 group-hover:text-amber-50 transition-colors uppercase tracking-tight">{article.title}</p>
-                                                    <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                                        <span>{article.source}</span>
+                                                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
+                                                        <span className="text-slate-500">{article.source}</span>
                                                         <span className="w-1 h-1 rounded-full bg-slate-700" />
-                                                        <span className={`${article.analysis!.impactScore >= 70 ? 'text-green-500' :
-                                                            article.analysis!.impactScore >= 50 ? 'text-amber-500' : 'text-slate-400'
+                                                        <span className={`${(article.adjusted_score ?? article.analysis!.impactScore) >= 70 ? 'text-green-500' :
+                                                            (article.adjusted_score ?? article.analysis!.impactScore) >= 50 ? 'text-amber-500' : 'text-slate-400'
                                                             }`}>
-                                                            Score {article.analysis?.impactScore}
+                                                            Score {Math.round(article.adjusted_score ?? article.analysis!.impactScore)}
                                                         </span>
+                                                        {article.isPersonalized && (
+                                                            <>
+                                                                <span className="w-1 h-1 rounded-full bg-slate-700" />
+                                                                {article.reasons?.boosted.map(r => (
+                                                                    <span key={r.key} className="text-blue-400">
+                                                                        ↑ {r.key}
+                                                                    </span>
+                                                                ))}
+                                                                {article.reasons?.suppressed.map(r => (
+                                                                    <span key={r.key} className="text-orange-400">
+                                                                        ↓ {r.key}
+                                                                    </span>
+                                                                ))}
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <ChevronLeft className="w-4 h-4 text-slate-600 rotate-180 group-hover:translate-x-1 transition-transform" />
@@ -334,11 +362,27 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                                                 className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-xl hover:border-slate-300 cursor-pointer transition-all group active:scale-[0.98]"
                                             >
                                                 <div className="flex items-start justify-between mb-4">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{article.source}</span>
-                                                    <div className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-tight ${article.analysis!.impactScore >= 70 ? 'bg-green-100 text-green-700 border border-green-200' :
-                                                        article.analysis!.impactScore >= 50 ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{article.source}</span>
+                                                        {article.isPersonalized && (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {article.reasons?.boosted.map(r => (
+                                                                    <span key={r.key} className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-bold border bg-blue-50 text-blue-600 border-blue-100">
+                                                                        ↑ {r.key}
+                                                                    </span>
+                                                                ))}
+                                                                {article.reasons?.suppressed.map(r => (
+                                                                    <span key={r.key} className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-bold border bg-orange-50 text-orange-600 border-orange-100">
+                                                                        ↓ {r.key}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-tight ${(article.adjusted_score ?? article.analysis!.impactScore) >= 70 ? 'bg-green-100 text-green-700 border border-green-200' :
+                                                        (article.adjusted_score ?? article.analysis!.impactScore) >= 50 ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-700 border border-slate-200'
                                                         }`}>
-                                                        {article.analysis?.impactScore}P
+                                                        {Math.round(article.adjusted_score ?? article.analysis!.impactScore)}P
                                                     </div>
                                                 </div>
                                                 <h3 className="text-sm font-black text-gray-900 leading-tight mb-3 group-hover:text-slate-800 uppercase tracking-tight">
@@ -460,12 +504,22 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Impact Factor</h3>
                                     </div>
                                     <div className="flex items-baseline gap-2 relative z-10">
-                                        <span className={`text-6xl md:text-7xl font-black ${selectedArticle.analysis.impactScore >= 70 ? 'text-green-400' :
-                                            selectedArticle.analysis.impactScore >= 50 ? 'text-amber-400' : 'text-slate-400'
+                                        <span className={`text-6xl md:text-7xl font-black ${(selectedArticle.adjusted_score ?? selectedArticle.analysis.impactScore) >= 70 ? 'text-green-400' :
+                                            (selectedArticle.adjusted_score ?? selectedArticle.analysis.impactScore) >= 50 ? 'text-amber-400' : 'text-slate-400'
                                             }`}>
-                                            {selectedArticle.analysis.impactScore}
+                                            {Math.round(selectedArticle.adjusted_score ?? selectedArticle.analysis.impactScore)}
                                         </span>
                                         <span className="text-xl font-black text-slate-700">/100</span>
+                                        {selectedArticle.isPersonalized && (
+                                            <div className="ml-4">
+                                                <div className={`text-[10px] font-black uppercase tracking-widest mb-1 ${(selectedArticle.preference_delta || 0) > 0 ? 'text-blue-400' : 'text-orange-400'}`}>
+                                                    {(selectedArticle.preference_delta || 0) > 0 ? '↑ Boosted' : '↓ Suppressed'}
+                                                </div>
+                                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-none">
+                                                    Base: {selectedArticle.base_score ?? selectedArticle.analysis.impactScore}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -513,6 +567,8 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                             <div className="pt-2">
                                 <DecisionAssessmentPanel
                                     article={selectedArticle}
+                                    scanId={params.id}
+                                    analysisId={selectedArticle.analysis?.id}
                                     onSave={() => {
                                         fetchScanDetail()
                                     }}

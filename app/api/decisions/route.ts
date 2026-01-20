@@ -42,10 +42,14 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Insert or update decision
+        // TODO: Replace with actual auth when implemented
+        const user_id = 'default-user'
+
+        // Insert or update decision - use user_id + article_id as unique key
         const { data: decision, error } = await supabase
             .from('decision_assessments')
             .upsert({
+                user_id,
                 article_id,
                 analysis_id,
                 scan_id: scan_id || null,
@@ -58,7 +62,7 @@ export async function POST(request: NextRequest) {
                 is_override: is_override || false,
                 updated_at: new Date().toISOString()
             }, {
-                onConflict: 'article_id',
+                onConflict: 'user_id,article_id',
                 ignoreDuplicates: false
             })
             .select()
@@ -66,33 +70,22 @@ export async function POST(request: NextRequest) {
 
         if (error) throw error
 
-        // Update preference weights based on decision
+
+        // Update signal weights based on decision (Signals v1)
         try {
-            // Get article categories for preference update
             const { data: article } = await supabase
                 .from('articles')
-                .select('id, title, analyses(id, categories)')
+                .select('id, title, analyses(id, categories, impact_score)')
                 .eq('id', article_id)
                 .single()
 
-            if (article?.analyses?.[0]?.categories) {
-                const categories = article.analyses[0].categories.split(',').map((c: string) => c.trim())
-                const weight = PREFERENCE_WEIGHTS[action_required] || 0
-
-                for (const category of categories) {
-                    if (category) {
-                        await supabase.rpc('upsert_topic_preference', {
-                            p_user_id: 'default-user',
-                            p_key_type: 'category',
-                            p_key_value: category,
-                            p_weight_delta: weight
-                        })
-                    }
-                }
+            if (article) {
+                const { updateWeightsFromDecision } = await import('@/lib/signals/updateWeights')
+                await updateWeightsFromDecision(user_id, article, action_required)
             }
-        } catch (prefError) {
-            console.error('Error updating preferences:', prefError)
-            // Don't fail the main request if preferences fail
+        } catch (signalError) {
+            console.error('Error updating signal weights:', signalError)
+            // Non-blocking
         }
 
         return NextResponse.json({ success: true, decision })

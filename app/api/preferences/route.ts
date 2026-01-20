@@ -21,8 +21,8 @@ export async function GET() {
         const supabase = supabaseAdmin()
         const userId = 'default-user'
 
-        const { data: preferences, error } = await supabase
-            .from('user_topic_preferences')
+        const { data: weights, error } = await supabase
+            .from('user_signal_weights')
             .select('*')
             .eq('user_id', userId)
             .order('weight', { ascending: false })
@@ -30,31 +30,43 @@ export async function GET() {
         if (error) throw error
 
         // Group by type
-        const grouped = (preferences || []).reduce((acc: Record<string, Preference[]>, pref: Preference) => {
-            if (!acc[pref.key_type]) acc[pref.key_type] = []
-            acc[pref.key_type].push(pref)
+        const grouped = (weights || []).reduce((acc: Record<string, any[]>, w) => {
+            if (!acc[w.feature_type]) acc[w.feature_type] = []
+            acc[w.feature_type].push(w)
             return acc
         }, {})
 
-        // Calculate top boosts and suppressions
-        const boosts = (preferences || [])
-            .filter((p: Preference) => p.weight > 0)
-            .slice(0, 10)
+        // Calculate top groups (matching /research/signals requirement)
+        const boosted = (weights || [])
+            .filter(w => w.weight > 0 && w.state === 'active')
+            .slice(0, 5)
 
-        const suppressions = (preferences || [])
-            .filter((p: Preference) => p.weight < 0)
-            .slice(0, 10)
+        const suppressed = (weights || [])
+            .filter(w => (w.weight < 0 || w.state === 'muted'))
+            .sort((a, b) => {
+                if (a.state === 'muted' && b.state !== 'muted') return -1
+                if (b.state === 'muted' && a.state !== 'muted') return 1
+                return a.weight - b.weight
+            })
+            .slice(0, 5)
+
+        const muted = (weights || [])
+            .filter(w => w.state === 'muted')
 
         return NextResponse.json({
-            preferences: grouped,
-            boosts,
-            suppressions,
-            total: preferences?.length || 0
+            ok: true,
+            data: {
+                preferences: grouped,
+                boosted,
+                suppressed,
+                muted,
+                total: weights?.length || 0
+            }
         })
     } catch (error) {
         console.error('Preferences fetch error:', error)
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to fetch preferences' },
+            { ok: false, error: error instanceof Error ? error.message : 'Failed to fetch preferences' },
             { status: 500 }
         )
     }
@@ -69,68 +81,35 @@ export async function POST(request: NextRequest) {
 
         if (!articles || !Array.isArray(articles)) {
             return NextResponse.json(
-                { error: 'articles array is required' },
+                { ok: false, error: 'articles array is required' },
                 { status: 400 }
             )
         }
 
-        // Get user preferences
-        const { data: preferences } = await supabase
-            .from('user_topic_preferences')
-            .select('key_type, key_value, weight')
+        // Get user signal weights
+        const { data: weights } = await supabase
+            .from('user_signal_weights')
+            .select('*')
             .eq('user_id', userId)
 
-        // Create preference lookup
-        const prefLookup = new Map<string, number>()
-        for (const pref of preferences || []) {
-            prefLookup.set(`${pref.key_type}:${pref.key_value}`, pref.weight)
-        }
+        // Score each article using the v2 engine
+        const { scoreArticlesV2 } = await import('@/lib/signals/scoreArticles')
+        const scoredArticles = scoreArticlesV2(articles, weights || [])
 
-        // Score each article
-        const scoredArticles = articles.map((article: any) => {
-            let personalScore = 0
-            const boostReasons: string[] = []
-            const suppressReasons: string[] = []
-
-            // Check categories
-            const categories = article.analysis?.categories?.split(',').map((c: string) => c.trim()) || []
-            for (const cat of categories) {
-                const weight = prefLookup.get(`category:${cat}`)
-                if (weight !== undefined) {
-                    personalScore += weight
-                    if (weight > 0) {
-                        boostReasons.push(`+${weight.toFixed(1)} ${cat}`)
-                    } else if (weight < 0) {
-                        suppressReasons.push(`${weight.toFixed(1)} ${cat}`)
-                    }
-                }
-            }
-
-            // Calculate final score (base impact + personalization)
-            const baseScore = article.analysis?.impactScore || article.analysis?.impact_score || 50
-            const finalScore = Math.max(0, Math.min(100, baseScore + personalScore * 5))
-
-            return {
-                ...article,
-                personalScore,
-                finalScore,
-                boostReasons,
-                suppressReasons,
-                isPersonalized: boostReasons.length > 0 || suppressReasons.length > 0
-            }
-        })
-
-        // Sort by final score
-        scoredArticles.sort((a: any, b: any) => b.finalScore - a.finalScore)
+        // Sort by adjusted score
+        scoredArticles.sort((a, b) => b.adjusted_score - a.adjusted_score)
 
         return NextResponse.json({
-            articles: scoredArticles,
-            hasPreferences: (preferences?.length || 0) > 0
+            ok: true,
+            data: {
+                articles: scoredArticles,
+                hasPreferences: (weights?.length || 0) > 0
+            }
         })
     } catch (error) {
         console.error('Scoring error:', error)
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to score articles' },
+            { ok: false, error: error instanceof Error ? error.message : 'Failed to score articles' },
             { status: 500 }
         )
     }
