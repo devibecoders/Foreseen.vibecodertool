@@ -25,15 +25,20 @@ CREATE INDEX IF NOT EXISTS idx_dashboard_notes_week_label ON dashboard_notes(use
 ALTER TABLE dashboard_notes ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+-- RLS Policies
+DROP POLICY IF EXISTS "dashboard_notes_select_own" ON dashboard_notes;
 CREATE POLICY "dashboard_notes_select_own" ON dashboard_notes
   FOR SELECT USING (user_id = COALESCE(auth.uid()::text, 'default-user'));
 
+DROP POLICY IF EXISTS "dashboard_notes_insert_own" ON dashboard_notes;
 CREATE POLICY "dashboard_notes_insert_own" ON dashboard_notes
   FOR INSERT WITH CHECK (user_id = COALESCE(auth.uid()::text, 'default-user'));
 
+DROP POLICY IF EXISTS "dashboard_notes_update_own" ON dashboard_notes;
 CREATE POLICY "dashboard_notes_update_own" ON dashboard_notes
   FOR UPDATE USING (user_id = COALESCE(auth.uid()::text, 'default-user'));
 
+DROP POLICY IF EXISTS "dashboard_notes_delete_own" ON dashboard_notes;
 CREATE POLICY "dashboard_notes_delete_own" ON dashboard_notes
   FOR DELETE USING (user_id = COALESCE(auth.uid()::text, 'default-user'));
 
@@ -61,15 +66,19 @@ CREATE INDEX IF NOT EXISTS idx_dashboard_tasks_due_date ON dashboard_tasks(user_
 ALTER TABLE dashboard_tasks ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+DROP POLICY IF EXISTS "dashboard_tasks_select_own" ON dashboard_tasks;
 CREATE POLICY "dashboard_tasks_select_own" ON dashboard_tasks
   FOR SELECT USING (user_id = COALESCE(auth.uid()::text, 'default-user'));
 
+DROP POLICY IF EXISTS "dashboard_tasks_insert_own" ON dashboard_tasks;
 CREATE POLICY "dashboard_tasks_insert_own" ON dashboard_tasks
   FOR INSERT WITH CHECK (user_id = COALESCE(auth.uid()::text, 'default-user'));
 
+DROP POLICY IF EXISTS "dashboard_tasks_update_own" ON dashboard_tasks;
 CREATE POLICY "dashboard_tasks_update_own" ON dashboard_tasks
   FOR UPDATE USING (user_id = COALESCE(auth.uid()::text, 'default-user'));
 
+DROP POLICY IF EXISTS "dashboard_tasks_delete_own" ON dashboard_tasks;
 CREATE POLICY "dashboard_tasks_delete_own" ON dashboard_tasks
   FOR DELETE USING (user_id = COALESCE(auth.uid()::text, 'default-user'));
 

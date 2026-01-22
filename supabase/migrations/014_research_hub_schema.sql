@@ -59,6 +59,7 @@ ON user_topic_preferences(user_id, weight DESC);
 
 ALTER TABLE user_topic_preferences ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow all on user_topic_preferences" ON user_topic_preferences;
 CREATE POLICY "Allow all on user_topic_preferences" 
 ON user_topic_preferences FOR ALL 
 USING (true) WITH CHECK (true);

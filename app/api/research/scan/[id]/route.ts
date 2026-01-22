@@ -21,7 +21,7 @@ export async function GET(
         id, started_at, completed_at, items_fetched, items_analyzed, status,
         articles (
           id, title, url, source, published_at, scan_id,
-          analyses (id, summary, categories, impact_score, relevance_reason, customer_angle, vibecoders_angle, key_takeaways)
+          analyses (id, summary, categories, impact_score, relevance_reason, customer_angle, vibecoders_angle, key_takeaways, signals)
         )
       `)
       .eq('id', scanId)
@@ -42,11 +42,23 @@ export async function GET(
 
     const { scoreArticlesV2 } = await import('@/lib/signals/scoreArticles')
 
+    // Fetch decisions for this scan
+    const { data: decisions } = await supabase
+      .from('decision_assessments')
+      .select('*')
+      .eq('scan_id', scanId)
+      .eq('user_id', 'default-user') // TODO: use auth.uid()
+
+    const decisionMap = new Map()
+    decisions?.forEach((d: any) => decisionMap.set(d.article_id, d))
+
     // Transform article data for frontend
     const articles = (scan.articles || []).map((article: any) => {
       // Handle both array and object responses from Supabase for the 1-to-1 analyses relation
       const analyses = article.analyses
       const analysisData = Array.isArray(analyses) ? analyses[0] : analyses
+
+      const userDecision = decisionMap.get(article.id)
 
       return {
         id: article.id,
@@ -55,6 +67,11 @@ export async function GET(
         source: article.source,
         publishedAt: article.published_at,
         scanId: article.scan_id,
+        decision: userDecision ? {
+          id: userDecision.id,
+          action: userDecision.action_required,
+          createdAt: userDecision.created_at
+        } : null,
         analysis: analysisData ? {
           summary: analysisData.summary,
           categories: analysisData.categories,
@@ -62,7 +79,8 @@ export async function GET(
           relevanceReason: analysisData.relevance_reason,
           customerAngle: analysisData.customer_angle,
           vibecodersAngle: analysisData.vibecoders_angle,
-          keyTakeaways: analysisData.key_takeaways
+          keyTakeaways: analysisData.key_takeaways,
+          signals: analysisData.signals // Pass through signals for transparency
         } : null
       }
     })

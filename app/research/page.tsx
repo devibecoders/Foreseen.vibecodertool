@@ -42,7 +42,7 @@ export default function ResearchPage() {
         setLoading(true)
         try {
             // Fetch last scan
-            const scansRes = await fetch('/api/scans')
+            const scansRes = await fetch('/api/research/scan')
             const scansData = await scansRes.json()
             if (scansData.scans && scansData.scans.length > 0) {
                 setLastScan(scansData.scans[0])

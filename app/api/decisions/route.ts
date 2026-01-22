@@ -6,16 +6,10 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/server'
+import { updateWeightsFromDecision } from '@/lib/signals/updateWeights'
+import { extractSignals, signalsToJson } from '@/lib/signals/extractSignals'
 
 export const dynamic = 'force-dynamic'
-
-// Signal weights for personalization
-const PREFERENCE_WEIGHTS: Record<string, number> = {
-    ignore: -2,
-    monitor: 0.5,
-    experiment: 1.5,
-    integrate: 3
-}
 
 export async function POST(request: NextRequest) {
     try {
@@ -45,7 +39,46 @@ export async function POST(request: NextRequest) {
         // TODO: Replace with actual auth when implemented
         const user_id = 'default-user'
 
-        // Insert or update decision - use user_id + article_id as unique key
+        // 1. Fetch analysis to check if we have signals
+        const { data: analysis } = await supabase
+            .from('analyses')
+            .select('*')
+            .eq('id', analysis_id)
+            .single()
+
+        // 2. Extract signals if missing in DB
+        let currentAnalysis = analysis
+        const { data: article } = await supabase
+            .from('articles')
+            .select('id, title, raw_content')
+            .eq('id', article_id)
+            .single()
+
+        if (currentAnalysis && !currentAnalysis.signals && article) {
+            const extracted = extractSignals({
+                title: article.title,
+                summary: currentAnalysis.summary,
+                categories: currentAnalysis.categories,
+                content: article.raw_content
+            })
+
+            // Persist the extracted signals
+            const { data: updatedAnalysis, error: updateError } = await supabase
+                .from('analyses')
+                .update({
+                    signals: signalsToJson(extracted),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', analysis_id)
+                .select()
+                .single()
+
+            if (!updateError) {
+                currentAnalysis = updatedAnalysis
+            }
+        }
+
+        // 3. Insert or update decision - use user_id + article_id as unique key
         const { data: decision, error } = await supabase
             .from('decision_assessments')
             .upsert({
@@ -70,19 +103,29 @@ export async function POST(request: NextRequest) {
 
         if (error) throw error
 
-
-        // Update signal weights based on decision (Signals v1)
+        // 4. Update signal weights based on decision
+        // Now using the 3-layer model with toxic concept protection
         try {
-            const { data: article } = await supabase
-                .from('articles')
-                .select('id, title, analyses(id, categories, impact_score)')
-                .eq('id', article_id)
-                .single()
-
-            if (article) {
-                const { updateWeightsFromDecision } = await import('@/lib/signals/updateWeights')
-                await updateWeightsFromDecision(user_id, article, action_required)
+            const articleForSignals = {
+                title: article?.title,
+                analyses: [currentAnalysis]
             }
+
+            console.log(`[Decision] Updating weights for article: "${article?.title}"`)
+            console.log(`[Decision] Analysis data:`, {
+                hasSignals: !!currentAnalysis?.signals,
+                signalsLength: currentAnalysis?.signals ? Object.keys(currentAnalysis.signals).length : 0,
+                categories: currentAnalysis?.categories
+            })
+
+            const updates = await updateWeightsFromDecision(user_id, articleForSignals, action_required)
+
+            console.log(`[Decision] Signal updates returned: ${updates.length}`)
+            updates.forEach(u => console.log(`  - ${u.type}:${u.value} = ${u.effectiveDelta.toFixed(2)}`))
+
+            // Return updates in response for client-side feedback if needed
+            // @ts-ignore
+            decision.signal_updates = updates
         } catch (signalError) {
             console.error('Error updating signal weights:', signalError)
             // Non-blocking
@@ -110,7 +153,7 @@ export async function GET(request: NextRequest) {
         *,
         article:articles(
           id, title, url, source, published_at,
-          analyses(summary, categories, impact_score)
+          analyses(summary, categories, impact_score, signals)
         )
       `)
             .order('created_at', { ascending: false })

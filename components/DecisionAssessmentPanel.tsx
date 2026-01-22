@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertTriangle, CheckCircle2, Clock, TrendingUp, Save, Radar as RadarIcon, Shield, Loader2, VolumeX } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, TrendingUp, Save, Radar as RadarIcon, Shield, Loader2, VolumeX, Info, Lightbulb } from 'lucide-react'
 import { toast } from 'sonner'
+import { extractSignals, type ExtractedSignals } from '@/lib/signals/extractSignals'
 
 interface DecisionAssessmentPanelProps {
   article: any
@@ -48,6 +49,18 @@ export default function DecisionAssessmentPanel({ article, scanId, analysisId, b
 
   const [conflictingBoundaries, setConflictingBoundaries] = useState<any[]>([])
   const [saving, setSaving] = useState(false)
+  const [signals, setSignals] = useState<ExtractedSignals | null>(null)
+
+  // Extract signals on mount or article change
+  useEffect(() => {
+    const extracted = extractSignals({
+      title: article.title,
+      summary: article.analysis?.summary,
+      categories: article.analysis?.categories,
+      content: article.raw_content
+    })
+    setSignals(extracted)
+  }, [article])
 
   useEffect(() => {
     checkBoundaryConflicts()
@@ -189,6 +202,16 @@ export default function DecisionAssessmentPanel({ article, scanId, analysisId, b
     // TODO: Implement actual API call
   }
 
+  // Format context label prettily
+  const formatContext = (key: string) => {
+    // "context:entity:grok|concept:undress" -> "Grok · Undress"
+    return key.replace('context:', '')
+      .replace('entity:', '')
+      .replace('tool:', '')
+      .replace('concept:', '')
+      .split('|').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' · ')
+  }
+
   return (
     <div className="bg-slate-50 border-2 border-slate-200 rounded-3xl p-5 md:p-8 space-y-8">
       {/* Header */}
@@ -199,6 +222,118 @@ export default function DecisionAssessmentPanel({ article, scanId, analysisId, b
         <div>
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none">Strategic Decision</h3>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Impact & Commitment</p>
+        </div>
+      </div>
+
+      {/* Decision Context UI (New Section) */}
+      <div className="bg-white border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+        {/* Quick Summary Header */}
+        <div className="bg-slate-50/50 p-5 border-b border-slate-100">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none mb-2">Decision Context</h4>
+              <p className="text-sm font-bold text-slate-700 leading-tight line-clamp-2">
+                {article.analysis?.summary || article.summary}
+              </p>
+            </div>
+            {(article.adjusted_score || article.analysis?.impactScore) && (
+              <div className="text-right flex-shrink-0">
+                <div className={`text-xl font-black ${(article.adjusted_score ?? article.analysis.impactScore) >= 70 ? 'text-green-600' : 'text-slate-400'}`}>
+                  {Math.round(article.adjusted_score ?? article.analysis.impactScore)}
+                </div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Score</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-5 space-y-6">
+          {/* Key Facts */}
+          {article.analysis?.keyTakeaways && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Info className="w-3 h-3 text-slate-400" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Key Facts</span>
+              </div>
+              <ul className="space-y-1.5 ml-1">
+                {article.analysis.keyTakeaways.split('|||').slice(0, 3).map((fact: string, i: number) => (
+                  <li key={i} className="text-xs font-medium text-slate-600 flex items-start gap-2">
+                    <span className="w-1 h-1 rounded-full bg-slate-300 mt-1.5 flex-shrink-0"></span>
+                    {fact}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Explainability (Why Surfaced) */}
+          {article.reasons && (article.reasons.boosted.length > 0 || article.reasons.suppressed.length > 0) && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-3 h-3 text-amber-400" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Why Surfaced</span>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[10px] font-bold">
+                {article.reasons.boosted.slice(0, 2).map((r: any) => (
+                  <span key={r.key} className="text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100 flex items-center gap-1">
+                    ↑ Boosted by {r.key} (+{r.weight.toFixed(1)})
+                  </span>
+                ))}
+                {article.reasons.suppressed.slice(0, 2).map((r: any) => (
+                  <span key={r.key} className="text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 flex items-center gap-1">
+                    ↓ Suppressed by {r.key} ({r.weight.toFixed(1)})
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Grouped Signals */}
+          {signals && signals.allKeys.length > 0 && (
+            <div className="space-y-3 pt-2 border-t border-slate-50">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                Training Signals (Will Update)
+              </span>
+
+              {/* Contexts (Dominant) */}
+              {signals.contexts.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {signals.contexts.map(c => (
+                    <span key={c} className="px-2 py-1 rounded-lg bg-teal-50 text-teal-700 text-[10px] font-black uppercase tracking-wider border border-teal-200 shadow-sm" title="Context Signal (High Priority)">
+                      ✨ {formatContext(c)}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 opacity-80">
+                {/* Concepts */}
+                {signals.concepts.map(c => (
+                  <span key={c} className="px-2 py-1 rounded-lg bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-wider border border-amber-100">
+                    {c.replace('concept:', '')}
+                  </span>
+                ))}
+                {/* Entities */}
+                {signals.entities.map(c => (
+                  <span key={c} className="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 text-[10px] font-black uppercase tracking-wider border border-purple-100">
+                    {c.replace('entity:', '')}
+                  </span>
+                ))}
+                {/* Tools */}
+                {signals.tools.map(c => (
+                  <span key={c} className="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-wider border border-indigo-100">
+                    {c.replace('tool:', '')}
+                  </span>
+                ))}
+                {/* Categories */}
+                {signals.categories.map(c => (
+                  <span key={c} className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider border border-blue-100">
+                    {c.replace('category:', '')}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

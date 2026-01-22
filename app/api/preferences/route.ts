@@ -1,7 +1,7 @@
 /**
- * User Preferences API Route
+ * User Preferences API Route (V2)
  * 
- * GET /api/preferences - Get user's topic preferences
+ * GET /api/preferences - Get user's signal preferences (all feature types)
  * POST /api/preferences/score - Score articles based on preferences
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -9,58 +9,119 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-interface Preference {
-    key_type: string
-    key_value: string
+// All feature types in the system
+const FEATURE_TYPES = ['category', 'entity', 'tool', 'concept', 'context'] as const
+
+interface SignalWeight {
+    id: string
+    user_id: string
+    feature_key: string
+    feature_type: string
+    feature_value: string
     weight: number
-    signal_count: number
+    state: string
+    updated_at: string
+    created_at: string
 }
 
-export async function GET() {
+/**
+ * Format context keys for display
+ * "entity:grok|concept:undress" -> "Grok · Undress"
+ */
+function formatContextValue(value: string): string {
+    return value
+        .replace('entity:', '')
+        .replace('tool:', '')
+        .replace('concept:', '')
+        .split('|')
+        .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+        .join(' · ')
+}
+
+export async function GET(request: NextRequest) {
     try {
         const supabase = supabaseAdmin()
         const userId = 'default-user'
+        const { searchParams } = new URL(request.url)
+        const showAll = searchParams.get('showAll') === 'true'
 
-        const { data: weights, error } = await supabase
+        // Fetch ALL signal weights for this user
+        let query = supabase
             .from('user_signal_weights')
             .select('*')
             .eq('user_id', userId)
-            .order('weight', { ascending: false })
+            .order('updated_at', { ascending: false })
+
+        // By default, only show items with weight != 0 OR muted
+        // Unless showAll is true
+        if (!showAll) {
+            query = query.or('weight.neq.0,state.eq.muted')
+        }
+
+        const { data: weights, error } = await query
 
         if (error) throw error
 
+        const allWeights = weights || []
+
         // Group by type
-        const grouped = (weights || []).reduce((acc: Record<string, any[]>, w) => {
-            if (!acc[w.feature_type]) acc[w.feature_type] = []
-            acc[w.feature_type].push(w)
-            return acc
-        }, {})
+        const byType: Record<string, SignalWeight[]> = {}
+        FEATURE_TYPES.forEach(type => { byType[type] = [] })
 
-        // Calculate top groups (matching /research/signals requirement)
-        const boosted = (weights || [])
+        allWeights.forEach(w => {
+            const type = w.feature_type
+            if (!byType[type]) byType[type] = []
+
+            // Add formatted display value for contexts
+            const displayValue = type === 'context'
+                ? formatContextValue(w.feature_value)
+                : w.feature_value
+
+            byType[type].push({
+                ...w,
+                displayValue
+            })
+        })
+
+        // Calculate totals
+        const totals = {
+            categories: byType.category.length,
+            entities: byType.entity.length,
+            tools: byType.tool.length,
+            concepts: byType.concept.length,
+            contexts: byType.context.length,
+            muted: allWeights.filter(w => w.state === 'muted').length,
+            total: allWeights.length
+        }
+
+        // Calculate top boosted and suppressed for summary
+        const boosted = allWeights
             .filter(w => w.weight > 0 && w.state === 'active')
-            .slice(0, 5)
+            .sort((a, b) => b.weight - a.weight)
+            .slice(0, 8)
 
-        const suppressed = (weights || [])
-            .filter(w => (w.weight < 0 || w.state === 'muted'))
+        const suppressed = allWeights
+            .filter(w => w.weight < 0 || w.state === 'muted')
             .sort((a, b) => {
                 if (a.state === 'muted' && b.state !== 'muted') return -1
                 if (b.state === 'muted' && a.state !== 'muted') return 1
                 return a.weight - b.weight
             })
-            .slice(0, 5)
+            .slice(0, 8)
 
-        const muted = (weights || [])
-            .filter(w => w.state === 'muted')
+        const muted = allWeights.filter(w => w.state === 'muted')
 
         return NextResponse.json({
             ok: true,
             data: {
-                preferences: grouped,
+                totals,
+                byType,
+                all: allWeights,
                 boosted,
                 suppressed,
                 muted,
-                total: weights?.length || 0
+                // Legacy compatibility
+                preferences: byType
             }
         })
     } catch (error) {

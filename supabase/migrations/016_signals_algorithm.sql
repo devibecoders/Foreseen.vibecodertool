@@ -23,6 +23,8 @@ CREATE INDEX IF NOT EXISTS idx_user_signal_weights_updated ON public.user_signal
 ALTER TABLE public.user_signal_weights ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (using text user_id for now as per current project pattern)
+-- RLS Policies (using text user_id for now as per current project pattern)
+DROP POLICY IF EXISTS "Users can manage their own signal weights" ON public.user_signal_weights;
 CREATE POLICY "Users can manage their own signal weights"
     ON public.user_signal_weights
     FOR ALL

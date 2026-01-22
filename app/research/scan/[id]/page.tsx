@@ -39,6 +39,11 @@ interface Article {
         suppressed: Array<{ key: string, weight: number }>
     }
     isPersonalized?: boolean
+    decision?: {
+        id: string
+        action: string
+        createdAt: string
+    } | null
 }
 
 interface Scan {
@@ -359,11 +364,19 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                                             <div
                                                 key={article.id}
                                                 onClick={() => setSelectedArticle(article)}
-                                                className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-xl hover:border-slate-300 cursor-pointer transition-all group active:scale-[0.98]"
+                                                className={`bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-xl hover:border-slate-300 cursor-pointer transition-all group active:scale-[0.98] ${article.decision ? 'opacity-60 hover:opacity-100 bg-slate-50/50' : ''
+                                                    }`}
                                             >
                                                 <div className="flex items-start justify-between mb-4">
                                                     <div className="flex flex-col gap-1">
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{article.source}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{article.source}</span>
+                                                            {article.decision && (
+                                                                <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                                                                    {article.decision.action}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         {article.isPersonalized && (
                                                             <div className="flex flex-wrap gap-1">
                                                                 {article.reasons?.boosted.map(r => (
@@ -570,6 +583,7 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                                     scanId={params.id}
                                     analysisId={selectedArticle.analysis?.id}
                                     onSave={() => {
+                                        setSelectedArticle(null)
                                         fetchScanDetail()
                                     }}
                                 />

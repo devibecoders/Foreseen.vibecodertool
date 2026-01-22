@@ -40,16 +40,16 @@ export default function DecisionsPage() {
     setLoading(true)
     try {
       // Fetch recent articles from latest scan
-      const scansResponse = await fetch('/api/scans')
+      const scansResponse = await fetch('/api/research/scan')
       const scansData = await scansResponse.json()
-      
+
       if (scansData.scans && scansData.scans.length > 0) {
         const latestScan = scansData.scans[0]
-        const scanResponse = await fetch(`/api/scans?scanId=${latestScan.id}`)
+        const scanResponse = await fetch(`/api/research/scan/${latestScan.id}`)
         const scanData = await scanResponse.json()
-        
+
         const articlesWithAnalysis = (scanData.scan.articles || []).filter((a: Article) => a.analysis)
-        
+
         // Process decisions for all articles
         setProcessing(true)
         const articlesWithDecisions = await Promise.all(
@@ -58,7 +58,7 @@ export default function DecisionsPage() {
             return { ...article, decision }
           })
         )
-        
+
         setArticles(articlesWithDecisions)
         setProcessing(false)
       }
@@ -70,8 +70,8 @@ export default function DecisionsPage() {
     }
   }
 
-  const filteredArticles = filter === 'all' 
-    ? articles 
+  const filteredArticles = filter === 'all'
+    ? articles
     : articles.filter(a => a.decision?.action === filter)
 
   const experimentArticles = articles.filter(a => a.decision?.action === 'EXPERIMENT')
@@ -81,7 +81,7 @@ export default function DecisionsPage() {
   return (
     <div className="min-h-screen">
       <Navigation />
-      
+
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -139,33 +139,29 @@ export default function DecisionsPage() {
               <Filter className="w-4 h-4 text-gray-500" />
               <button
                 onClick={() => setFilter('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'all' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-gray-700 hover:bg-slate-50'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'all' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-gray-700 hover:bg-slate-50'
+                  }`}
               >
                 All ({articles.length})
               </button>
               <button
                 onClick={() => setFilter('EXPERIMENT')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'EXPERIMENT' ? 'bg-success-600 text-white' : 'bg-white border border-slate-200 text-gray-700 hover:bg-slate-50'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'EXPERIMENT' ? 'bg-success-600 text-white' : 'bg-white border border-slate-200 text-gray-700 hover:bg-slate-50'
+                  }`}
               >
                 ⚡ Experiment ({experimentArticles.length})
               </button>
               <button
                 onClick={() => setFilter('MONITOR')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'MONITOR' ? 'bg-warning-600 text-white' : 'bg-white border border-slate-200 text-gray-700 hover:bg-slate-50'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'MONITOR' ? 'bg-warning-600 text-white' : 'bg-white border border-slate-200 text-gray-700 hover:bg-slate-50'
+                  }`}
               >
                 👁 Monitor ({monitorArticles.length})
               </button>
               <button
                 onClick={() => setFilter('IGNORE')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'IGNORE' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-gray-700 hover:bg-slate-50'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'IGNORE' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-gray-700 hover:bg-slate-50'
+                  }`}
               >
                 🚫 Ignore ({ignoreArticles.length})
               </button>
@@ -261,17 +257,16 @@ function DecisionArticleCard({ article }: { article: ArticleWithDecision }) {
         <span className="text-xs font-medium text-gray-500">{article.source}</span>
         <span className="text-lg">{article.decision.actionEmoji}</span>
       </div>
-      
+
       <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2">
         {article.title}
       </h3>
-      
+
       <div className="flex items-center justify-between mb-3">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${
-          article.analysis.impactScore >= 70 ? 'bg-success-100 text-success-700' :
-          article.analysis.impactScore >= 50 ? 'bg-warning-100 text-warning-700' :
-          'bg-gray-100 text-gray-700'
-        }`}>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${article.analysis.impactScore >= 70 ? 'bg-success-100 text-success-700' :
+            article.analysis.impactScore >= 50 ? 'bg-warning-100 text-warning-700' :
+              'bg-gray-100 text-gray-700'
+          }`}>
           {article.analysis.impactScore}/100
         </span>
         <span className="text-xs text-gray-500">
@@ -287,11 +282,10 @@ function DecisionArticleCard({ article }: { article: ArticleWithDecision }) {
         </div>
         <div className="w-full bg-gray-200 rounded-full h-1.5">
           <div
-            className={`h-1.5 rounded-full ${
-              article.decision.vibecodeAlignment >= 70 ? 'bg-success-500' :
-              article.decision.vibecodeAlignment >= 50 ? 'bg-warning-500' :
-              'bg-danger-500'
-            }`}
+            className={`h-1.5 rounded-full ${article.decision.vibecodeAlignment >= 70 ? 'bg-success-500' :
+                article.decision.vibecodeAlignment >= 50 ? 'bg-warning-500' :
+                  'bg-danger-500'
+              }`}
             style={{ width: `${article.decision.vibecodeAlignment}%` }}
           />
         </div>
