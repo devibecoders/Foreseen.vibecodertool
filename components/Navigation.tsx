@@ -8,7 +8,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useRef, useCallback } from 'react'
-import { ChevronDown, BarChart3, FileText, CheckSquare, Home, Sparkles, Star } from 'lucide-react'
+import { ChevronDown, BarChart3, FileText, CheckSquare, Home, Sparkles, Star, Linkedin } from 'lucide-react'
 
 export default function Navigation() {
   const pathname = usePathname()
@@ -34,7 +34,8 @@ export default function Navigation() {
     pathname === '/research/scan' ||
     pathname === '/weekly-briefs' ||
     pathname?.startsWith('/decisions') ||
-    pathname === '/must-read'
+    pathname === '/must-read' ||
+    pathname === '/linkedin'
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-md">
@@ -122,6 +123,14 @@ export default function Navigation() {
                   >
                     <Star className="w-4 h-4 text-amber-500" />
                     <span className="font-medium">Must-Read Top 10</span>
+                  </Link>
+                  <Link
+                    href="/linkedin"
+                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname === '/linkedin' ? 'text-slate-900 font-medium bg-blue-50' : 'text-gray-700'
+                      }`}
+                  >
+                    <Linkedin className="w-4 h-4 text-blue-600" />
+                    <span>LinkedIn Generator</span>
                   </Link>
                 </div>
               )}
