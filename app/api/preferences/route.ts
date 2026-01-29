@@ -111,8 +111,24 @@ export async function GET(request: NextRequest) {
 
         const muted = allWeights.filter(w => w.state === 'muted')
 
+        // Try to get health stats (may not exist if migration not run yet)
+        let health: any[] = []
+        try {
+            const { data: healthData } = await supabase
+                .from('signal_weight_health')
+                .select('*')
+            health = healthData || []
+        } catch (e) {
+            // View may not exist yet
+            console.log('signal_weight_health view not available yet')
+        }
+
         return NextResponse.json({
             ok: true,
+            // Flat response for SignalsCockpit component
+            weights: allWeights,
+            health,
+            // Nested data for other consumers
             data: {
                 totals,
                 byType,
@@ -120,6 +136,7 @@ export async function GET(request: NextRequest) {
                 boosted,
                 suppressed,
                 muted,
+                health,
                 // Legacy compatibility
                 preferences: byType
             }
