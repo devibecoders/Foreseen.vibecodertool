@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { ingestFromSources, deduplicateArticles } from '@/lib/ingest'
+import { clusterScanArticles } from '@/lib/clustering'
 import { llmService } from '@/lib/llm'
 import { AsyncQueue } from '@/lib/queue'
 
@@ -125,7 +126,18 @@ export async function POST(request: Request) {
     await Promise.all(analysisPromises)
     await queue.waitForAll()
 
-    console.log('[5/5] Complete!')
+    // Step 5: Cluster similar articles
+    console.log('[5/6] Clustering similar articles...')
+    let clusterStats = { clustersCreated: 0, articlesInClusters: 0, standaloneArticles: 0 }
+    try {
+      clusterStats = await clusterScanArticles(scan.id)
+      console.log(`Created ${clusterStats.clustersCreated} clusters from ${clusterStats.articlesInClusters} articles`)
+    } catch (clusterError) {
+      console.error('Clustering error:', clusterError)
+      // Non-fatal - continue with scan completion
+    }
+
+    console.log('[6/6] Complete!')
 
     // Update scan as completed
     const { error: updateError } = await supabase
@@ -152,6 +164,7 @@ export async function POST(request: Request) {
       itemsNew: ingestResult.itemsNew,
       duplicatesRemoved,
       itemsAnalyzed: analyzed,
+      clustering: clusterStats,
       errors: [...ingestResult.errors, ...errors],
     })
   } catch (error) {
