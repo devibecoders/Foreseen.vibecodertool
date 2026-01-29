@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { ingestFromSources, deduplicateArticles } from '@/lib/ingest'
 import { clusterScanArticles } from '@/lib/clustering'
+import { detectIntent } from '@/lib/signals/intentLabels'
 import { llmService } from '@/lib/llm'
 import { AsyncQueue } from '@/lib/queue'
 
@@ -102,6 +103,13 @@ export async function POST(request: Request) {
             article.raw_content || undefined
           )
 
+          // Detect intent from title + summary
+          const intentResult = detectIntent({
+            title: article.title,
+            summary: analysis.summary,
+            content: article.raw_content || undefined
+          })
+
           await supabase.from('analyses').insert({
             article_id: article.id,
             summary: analysis.summary,
@@ -111,6 +119,9 @@ export async function POST(request: Request) {
             customer_angle: analysis.customerAngle,
             vibecoders_angle: analysis.vibecodersAngle,
             key_takeaways: analysis.keyTakeaways.join('|||'),
+            intent_label: intentResult.label,
+            intent_confidence: intentResult.confidence,
+            intent_signals: intentResult.signals,
           })
 
           analyzed++
