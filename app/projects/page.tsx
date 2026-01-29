@@ -5,7 +5,8 @@ import Navigation from '@/components/Navigation'
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Archive, Eye, X, Sparkles, Briefcase, Edit3, Upload, FileText } from 'lucide-react'
+import { Plus, Archive, Eye, X, Sparkles, Briefcase, Edit3, Upload, FileText, Shield } from 'lucide-react'
+import Link from 'next/link'
 import confetti from 'canvas-confetti'
 
 interface Project {
@@ -341,6 +342,16 @@ export default function ProjectsPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Link
+              href="/projects/risk"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-sm
+                         bg-gradient-to-r from-red-50 to-orange-50 border border-orange-200 
+                         text-orange-700 hover:from-red-100 hover:to-orange-100"
+            >
+              <Shield className="w-4 h-4" />
+              Risk Board
+            </Link>
+
             <button
               onClick={() => setShowArchived(!showArchived)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-sm ${showArchived
