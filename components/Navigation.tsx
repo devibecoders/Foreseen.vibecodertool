@@ -8,7 +8,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useRef, useCallback } from 'react'
-import { ChevronDown, BarChart3, FileText, CheckSquare, Home, Sparkles } from 'lucide-react'
+import { ChevronDown, BarChart3, FileText, CheckSquare, Home, Sparkles, Star } from 'lucide-react'
 
 export default function Navigation() {
   const pathname = usePathname()
@@ -33,7 +33,8 @@ export default function Navigation() {
   const isResearchActive = pathname?.startsWith('/research') ||
     pathname === '/research/scan' ||
     pathname === '/weekly-briefs' ||
-    pathname?.startsWith('/decisions')
+    pathname?.startsWith('/decisions') ||
+    pathname === '/must-read'
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-md">
@@ -112,6 +113,15 @@ export default function Navigation() {
                   >
                     <CheckSquare className="w-4 h-4" />
                     Decisions
+                  </Link>
+                  <div className="border-t border-slate-100 my-1" />
+                  <Link
+                    href="/must-read"
+                    className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 ${pathname === '/must-read' ? 'text-slate-900 font-medium bg-amber-50' : 'text-gray-700'
+                      }`}
+                  >
+                    <Star className="w-4 h-4 text-amber-500" />
+                    <span className="font-medium">Must-Read Top 10</span>
                   </Link>
                 </div>
               )}
