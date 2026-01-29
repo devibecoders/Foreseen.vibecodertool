@@ -147,12 +147,21 @@ export default function Navigation() {
             </Link>
             <Link
               href="/projects"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/projects'
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/projects' || pathname === '/briefing'
                 ? 'bg-slate-900 text-white'
                 : 'text-gray-700 hover:bg-slate-50'
                 }`}
             >
               Projects
+            </Link>
+            <Link
+              href="/briefing"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/briefing'
+                ? 'bg-violet-100 text-violet-700'
+                : 'text-gray-700 hover:bg-slate-50'
+                }`}
+            >
+              📝 Briefing
             </Link>
           </nav>
 
