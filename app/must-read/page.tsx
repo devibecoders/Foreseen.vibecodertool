@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import Navigation from '@/components/Navigation'
 import { ClusterBadge } from '@/components/ClusterBadge'
+import { OutcomeGenerator } from '@/components/OutcomeGenerator'
 import { IntentChip } from '@/components/IntentChip'
 import { ArticleExplainability } from '@/components/ArticleExplainability'
 import { 
@@ -387,6 +388,15 @@ function MustReadCard({
             <ExternalLink className="w-3 h-3" />
           </a>
         </div>
+      </div>
+
+      {/* Outcome Generator - always visible */}
+      <div className="mt-4 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+        <OutcomeGenerator
+          articleId={article.id}
+          articleTitle={article.displayTitle || article.title}
+          suggestedAction={article.suggestedAction}
+        />
       </div>
 
       {/* Expanded Content */}

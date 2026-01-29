@@ -132,4 +132,60 @@ Geef je analyse in JSON format.`
   }
 }
 
+  /**
+   * Generic chat method for flexible LLM interactions
+   */
+  async chat(
+    systemPrompt: string, 
+    userPrompt: string, 
+    options?: { json?: boolean; temperature?: number }
+  ): Promise<string> {
+    const temperature = options?.temperature ?? 0.3
+
+    try {
+      let response: string
+
+      if (this.provider === 'openai' && this.openai) {
+        const completion = await this.openai.chat.completions.create({
+          model: this.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          ...(options?.json ? { response_format: { type: 'json_object' as const } } : {}),
+          temperature,
+        })
+        response = completion.choices[0].message.content || ''
+      } else if (this.provider === 'anthropic' && this.anthropic) {
+        const completion = await this.anthropic.messages.create({
+          model: this.model,
+          max_tokens: 2048,
+          messages: [
+            { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
+          ],
+          temperature,
+        })
+        const content = completion.content[0]
+        response = content.type === 'text' ? content.text : ''
+      } else {
+        throw new Error('No LLM provider configured')
+      }
+
+      // If JSON expected, try to extract it
+      if (options?.json && response) {
+        // Find JSON object in response
+        const jsonMatch = response.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          response = jsonMatch[0]
+        }
+      }
+
+      return response
+    } catch (error) {
+      console.error('LLM chat error:', error)
+      throw error
+    }
+  }
+}
+
 export const llmService = new LLMService()
