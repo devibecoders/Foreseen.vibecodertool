@@ -6,7 +6,7 @@ import Navigation from '@/components/Navigation'
 import { ClusterBadge } from '@/components/ClusterBadge'
 import { OutcomeGenerator } from '@/components/OutcomeGenerator'
 import { IntentChip } from '@/components/IntentChip'
-import { ArticleExplainability } from '@/components/ArticleExplainability'
+import ArticleExplainability from '@/components/ArticleExplainability'
 import { 
   Star, 
   ExternalLink, 

@@ -77,18 +77,19 @@ export async function POST(req: NextRequest) {
     const markdown = formatOutcomeMarkdown(outcome)
     
     // Store the outcome (optional, for history)
-    await supabase
-      .from('generated_outcomes')
-      .insert({
-        article_id: articleId,
-        outcome_type: outcomeType,
-        outcome_data: outcome,
-        outcome_markdown: markdown,
-      })
-      .catch(() => {
-        // Table might not exist yet, that's okay
-        console.log('Note: generated_outcomes table not available')
-      })
+    try {
+      await supabase
+        .from('generated_outcomes')
+        .insert({
+          article_id: articleId,
+          outcome_type: outcomeType,
+          outcome_data: outcome,
+          outcome_markdown: markdown,
+        })
+    } catch {
+      // Table might not exist yet, that's okay
+      console.log('Note: generated_outcomes table not available')
+    }
     
     return NextResponse.json({
       success: true,

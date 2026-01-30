@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase/client'
 import Navigation from '@/components/Navigation'
 import { 
   User, Mail, Shield, CreditCard, Bell, LogOut, 
@@ -47,7 +47,6 @@ export default function AccountPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   
   const router = useRouter()
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchProfile()

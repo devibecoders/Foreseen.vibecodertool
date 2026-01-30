@@ -333,16 +333,20 @@ function ProjectRiskCard({ project }: { project: ProjectWithRisk }) {
           )}
 
           <div className="flex items-center gap-1">
-            {project.briefing_url ? (
-              <CheckCircle className="w-4 h-4 text-green-500" title="Briefing uploaded" />
-            ) : (
-              <FileText className="w-4 h-4 text-slate-300" title="No briefing" />
-            )}
-            {project.step_plan_url ? (
-              <CheckCircle className="w-4 h-4 text-green-500" title="Step plan uploaded" />
-            ) : (
-              <FileText className="w-4 h-4 text-slate-300" title="No step plan" />
-            )}
+            <span title="Briefing">
+              {project.briefing_url ? (
+                <CheckCircle className="w-4 h-4 text-green-500" />
+              ) : (
+                <FileText className="w-4 h-4 text-slate-300" />
+              )}
+            </span>
+            <span title="Step plan">
+              {project.step_plan_url ? (
+                <CheckCircle className="w-4 h-4 text-green-500" />
+              ) : (
+                <FileText className="w-4 h-4 text-slate-300" />
+              )}
+            </span>
           </div>
         </div>
 
