@@ -1,5 +1,28 @@
+-- ============================================
 -- Migration 021: Intent Labels
--- Categorizes articles by intent: release, controversy, how-to, benchmark, opinion
+-- ============================================
+-- 
+-- PURPOSE: Categorizes articles by intent type for filtering and analysis
+-- AUTHOR: MoltBOT
+-- DATE: 2026-01-30
+-- DEPENDS ON: 012_articles_scans_supabase.sql (analyses table)
+--
+-- INTENT TYPES:
+--   - release: Product launches, new versions
+--   - controversy: Debates, ethical issues, problems
+--   - how-to: Tutorials, implementation guides
+--   - benchmark: Performance comparisons, tests
+--   - opinion: Editorials, predictions, commentary
+--   - news: General announcements, updates
+--   - research: Academic papers, studies
+--
+-- ROLLBACK:
+--   DROP VIEW IF EXISTS public.intent_distribution;
+--   DROP INDEX IF EXISTS idx_analyses_intent;
+--   ALTER TABLE public.analyses DROP CONSTRAINT IF EXISTS valid_intent_label;
+--   ALTER TABLE public.analyses DROP COLUMN IF EXISTS intent_label,
+--     DROP COLUMN IF EXISTS intent_confidence, DROP COLUMN IF EXISTS intent_signals;
+-- ============================================
 
 -- ============================================
 -- 1. ADD INTENT FIELDS TO ANALYSES

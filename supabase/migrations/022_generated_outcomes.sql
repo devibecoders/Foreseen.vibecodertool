@@ -1,5 +1,25 @@
+-- ============================================
 -- Migration 022: Generated Outcomes Storage
--- Stores generated checklists, reminders, and spike plans
+-- ============================================
+-- 
+-- PURPOSE: Stores AI-generated action items from article decisions
+-- AUTHOR: MoltBOT
+-- DATE: 2026-01-30
+-- DEPENDS ON: 012_articles_scans_supabase.sql (articles table)
+--
+-- OUTCOME TYPES:
+--   - checklist: Implementation steps with time estimates
+--   - reminder: Future check-in with trigger conditions
+--   - spike: Experimental plan with hypothesis and abort criteria
+--
+-- USAGE:
+--   Generated via "One-click Outcome Generator" buttons in UI
+--   LLM call only happens on button click (cost control)
+--
+-- ROLLBACK:
+--   DROP VIEW IF EXISTS public.recent_outcomes;
+--   DROP TABLE IF EXISTS public.generated_outcomes;
+-- ============================================
 
 CREATE TABLE IF NOT EXISTS public.generated_outcomes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

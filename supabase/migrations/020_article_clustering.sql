@@ -1,5 +1,29 @@
+-- ============================================
 -- Migration 020: Article Clustering / Deduplication
--- Groups similar articles into story clusters, picks best source
+-- ============================================
+-- 
+-- PURPOSE: Groups similar articles into story clusters, picks best source
+-- AUTHOR: MoltBOT
+-- DATE: 2026-01-30
+-- DEPENDS ON: 012_articles_scans_supabase.sql (articles table)
+--
+-- FEATURES:
+--   - Story clusters table for grouping similar articles
+--   - Automatic title slug generation for matching
+--   - Best source selection based on impact score
+--   - View for deduplicated article list
+--
+-- ROLLBACK:
+--   DROP VIEW IF EXISTS public.clustered_articles_view;
+--   DROP TRIGGER IF EXISTS trigger_update_cluster_timestamp ON public.story_clusters;
+--   DROP TRIGGER IF EXISTS trigger_set_article_title_slug ON public.articles;
+--   DROP FUNCTION IF EXISTS public.update_cluster_timestamp();
+--   DROP FUNCTION IF EXISTS public.set_article_title_slug();
+--   DROP FUNCTION IF EXISTS public.normalize_title_slug(TEXT);
+--   ALTER TABLE public.articles DROP COLUMN IF EXISTS cluster_id, 
+--     DROP COLUMN IF EXISTS is_cluster_primary, DROP COLUMN IF EXISTS title_slug;
+--   DROP TABLE IF EXISTS public.story_clusters;
+-- ============================================
 
 -- ============================================
 -- 1. STORY CLUSTERS TABLE
