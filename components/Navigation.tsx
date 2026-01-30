@@ -8,7 +8,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useRef, useCallback } from 'react'
-import { ChevronDown, BarChart3, FileText, CheckSquare, Home, Sparkles, Star, Linkedin } from 'lucide-react'
+import { ChevronDown, BarChart3, FileText, CheckSquare, Home, Sparkles, Star, Linkedin, Target } from 'lucide-react'
 
 export default function Navigation() {
   const pathname = usePathname()
@@ -153,6 +153,16 @@ export default function Navigation() {
                 }`}
             >
               Projects
+            </Link>
+            <Link
+              href="/leads"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${pathname === '/leads'
+                ? 'bg-orange-500 text-white'
+                : 'text-gray-700 hover:bg-orange-50'
+                }`}
+            >
+              <Target className="w-4 h-4" />
+              Leads
             </Link>
             <Link
               href="/briefing"
