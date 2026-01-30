@@ -9,6 +9,7 @@ import { Plus, Archive, Eye, X, Sparkles, Briefcase, Edit3, Upload, FileText, Sh
 import Link from 'next/link'
 import confetti from 'canvas-confetti'
 import ProjectIntelligenceModal from '@/components/ProjectIntelligenceModal'
+import ProjectDetailPanel from '@/components/ProjectDetailPanel'
 
 interface Project {
   id: string
@@ -27,6 +28,7 @@ interface Project {
   step_plan_filename?: string
   step_plan_url?: string // Supabase Storage URL
   active_playbook_id?: string
+  intelligence?: any // Project intelligence from AI analysis
   is_archived: boolean
   created_at: string
   updated_at: string
@@ -481,118 +483,26 @@ export default function ProjectsPage() {
           />
         )}
 
-        {/* Project Detail Modal */}
+        {/* Project Detail Panel */}
         {selectedProject && (
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-            onClick={() => setSelectedProject(null)}
-          >
-            <div
-              className="bg-white rounded-lg max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-semibold text-gray-900">{selectedProject.name}</h2>
-                  {getProjectTypeBadge(selectedProject.type)}
-                </div>
-                <button onClick={() => setSelectedProject(null)} className="text-gray-500 hover:text-gray-900">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Klant</p>
-                  <p className="text-base text-gray-900">{selectedProject.client_name || 'Geen klant opgegeven'}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Beschrijving</p>
-                  <p className="text-sm text-gray-700 leading-relaxed">{selectedProject.description || 'Geen beschrijving'}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Status</p>
-                  <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold bg-gray-100 text-gray-700">
-                    {selectedProject.status}
-                  </span>
-                </div>
-
-                {selectedProject.quote_amount && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 mb-1">Offerte Bedrag</p>
-                    <p className="text-lg font-bold text-gray-900">€ {selectedProject.quote_amount.toLocaleString('nl-NL')}</p>
-                  </div>
-                )}
-
-                {(selectedProject.briefing_url || selectedProject.step_plan_url) && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <h3 className="text-base font-semibold text-gray-900 mb-3">📄 Hand Over Document</h3>
-
-                    {selectedProject.briefing_url && (
-                      <div className="mb-4">
-                        <p className="text-sm font-medium text-gray-500 mb-2">Briefing</p>
-                        <a
-                          href={selectedProject.briefing_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between gap-3 hover:bg-blue-100 transition-colors cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3">
-                            <FileText className="w-5 h-5 text-blue-600" />
-                            <span className="text-sm font-medium text-gray-900">{selectedProject.briefing_filename || 'briefing.pdf'}</span>
-                          </div>
-                          <span className="text-xs text-blue-600 font-medium">Openen</span>
-                        </a>
-                      </div>
-                    )}
-
-                    {selectedProject.step_plan_url && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-2">Stappenplan</p>
-                        <a
-                          href={selectedProject.step_plan_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between gap-3 hover:bg-green-100 transition-colors cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3">
-                            <FileText className="w-5 h-5 text-green-600" />
-                            <span className="text-sm font-medium text-gray-900">{selectedProject.step_plan_filename || 'stappenplan.pdf'}</span>
-                          </div>
-                          <span className="text-xs text-green-600 font-medium">Openen</span>
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={() => {
-                      openEditModal(selectedProject)
-                      setSelectedProject(null)
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition-all"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    Bewerk Project
-                  </button>
-
-                  {!selectedProject.is_archived && (
-                    <button
-                      onClick={() => archiveProject(selectedProject.id)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-600 text-white rounded-md font-medium hover:bg-gray-700 transition-all"
-                    >
-                      <Archive className="w-4 h-4" />
-                      Archiveer
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <ProjectDetailPanel
+            project={selectedProject as any}
+            onClose={() => setSelectedProject(null)}
+            onEdit={() => {
+              openEditModal(selectedProject)
+              setSelectedProject(null)
+            }}
+            onArchive={(id) => {
+              archiveProject(id)
+              setSelectedProject(null)
+            }}
+            onIntelligenceUpdate={(projectId, intelligence) => {
+              setProjects(projects.map(p => 
+                p.id === projectId ? { ...p, intelligence } : p
+              ))
+              setSelectedProject(prev => prev ? { ...prev, intelligence } : null)
+            }}
+          />
         )}
       </main>
     </div>
