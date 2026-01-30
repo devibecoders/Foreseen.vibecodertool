@@ -1,13 +1,13 @@
 /**
  * Lead Analysis API
  * 
- * POST /api/leads/analyze - Analyze a lead with LLM
+ * POST /api/leads/analyze - Analyze a lead with ForeseenBrain
  * Called on button click (cost control)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/server'
-import { analyzeLead } from '@/lib/leadAnalyzer'
+import { ForeseenBrain } from '@/lib/brain'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,11 +39,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Run analysis
-    const analysis = await analyzeLead({
+    // Run analysis using ForeseenBrain
+    const brain = new ForeseenBrain()
+    const analysis = await brain.analyzeLead({
       company_name: lead.company_name,
       website_url: lead.website_url,
       industry: lead.industry,
+      company_size: lead.company_size,
       notes: lead.notes,
     })
 
@@ -52,11 +54,15 @@ export async function POST(request: NextRequest) {
       .from('leads')
       .update({
         quality_score: analysis.quality_score,
+        fit_score: analysis.fit_score,
         website_issues: analysis.website_issues,
         opportunities: analysis.opportunities,
         fit_reasons: analysis.fit_reasons,
+        pain_points: analysis.pain_points,
         outreach_email_draft: analysis.outreach_email,
         outreach_linkedin_draft: analysis.outreach_linkedin,
+        suggested_approach: analysis.recommended_approach,
+        estimated_value: analysis.estimated_project_value,
         status: lead.status === 'new' ? 'researching' : lead.status,
       })
       .eq('id', lead_id)
@@ -71,8 +77,11 @@ export async function POST(request: NextRequest) {
       .insert({
         lead_id,
         activity_type: 'note_added',
-        description: 'AI analysis completed',
-        metadata: { analysis_score: analysis.quality_score }
+        description: 'Deep AI analysis completed',
+        metadata: { 
+          quality_score: analysis.quality_score,
+          fit_score: analysis.fit_score 
+        }
       })
 
     return NextResponse.json({
