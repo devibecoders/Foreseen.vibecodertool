@@ -1,3 +1,10 @@
+/**
+ * LLM Service Module
+ * 
+ * Provides unified interface for OpenAI and Anthropic models.
+ * Used for article analysis, outcome generation, and other LLM tasks.
+ */
+
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -68,6 +75,9 @@ export class LLMService {
     }
   }
 
+  /**
+   * Analyze an article for relevance and categorization
+   */
   async analyzeArticle(title: string, url: string, content?: string): Promise<LLMAnalysis> {
     const userPrompt = `Analyseer dit AI-nieuws artikel:
 
@@ -130,17 +140,18 @@ Geef je analyse in JSON format.`
       }
     }
   }
-}
 
   /**
    * Generic chat method for flexible LLM interactions
+   * Used by outcome generator, briefing summarizer, etc.
    */
   async chat(
     systemPrompt: string, 
     userPrompt: string, 
-    options?: { json?: boolean; temperature?: number }
+    options?: { json?: boolean; temperature?: number; maxTokens?: number }
   ): Promise<string> {
     const temperature = options?.temperature ?? 0.3
+    const maxTokens = options?.maxTokens ?? 2048
 
     try {
       let response: string
@@ -154,12 +165,13 @@ Geef je analyse in JSON format.`
           ],
           ...(options?.json ? { response_format: { type: 'json_object' as const } } : {}),
           temperature,
+          max_tokens: maxTokens,
         })
         response = completion.choices[0].message.content || ''
       } else if (this.provider === 'anthropic' && this.anthropic) {
         const completion = await this.anthropic.messages.create({
           model: this.model,
-          max_tokens: 2048,
+          max_tokens: maxTokens,
           messages: [
             { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
           ],
@@ -171,9 +183,8 @@ Geef je analyse in JSON format.`
         throw new Error('No LLM provider configured')
       }
 
-      // If JSON expected, try to extract it
+      // If JSON expected, try to extract it from response
       if (options?.json && response) {
-        // Find JSON object in response
         const jsonMatch = response.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           response = jsonMatch[0]
@@ -188,4 +199,5 @@ Geef je analyse in JSON format.`
   }
 }
 
+// Singleton instance
 export const llmService = new LLMService()
