@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Navigation from '@/components/Navigation'
 import { 
   Linkedin, 
@@ -14,9 +14,21 @@ import {
   HelpCircle,
   BookOpen,
   Loader2,
-  BarChart3
+  BarChart3,
+  Star,
+  ArrowRight
 } from 'lucide-react'
 import { formatPostForCopy, estimateEngagement, type LinkedInPost } from '@/lib/linkedinGenerator'
+import Link from 'next/link'
+
+// Storage key for persistence
+const STORAGE_KEY = 'foreseen_linkedin_posts'
+
+interface StoredData {
+  posts: LinkedInPost[]
+  trends: Array<{ topic: string; articleCount: number; avgImpact: number }>
+  generatedAt: string
+}
 
 export default function LinkedInGeneratorPage() {
   const [posts, setPosts] = useState<LinkedInPost[]>([])
@@ -24,6 +36,48 @@ export default function LinkedInGeneratorPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [generatedAt, setGeneratedAt] = useState<string | null>(null)
+  const [topArticles, setTopArticles] = useState<Array<{ title: string; score: number }>>([])
+
+  // Load persisted data on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      try {
+        const data: StoredData = JSON.parse(stored)
+        setPosts(data.posts || [])
+        setTrends(data.trends || [])
+        setGeneratedAt(data.generatedAt || null)
+      } catch (e) {
+        console.error('Failed to load stored posts:', e)
+      }
+    }
+    
+    // Also fetch top 10 for inspiration
+    fetchTopArticles()
+  }, [])
+
+  // Persist data when it changes
+  useEffect(() => {
+    if (posts.length > 0) {
+      const data: StoredData = { posts, trends, generatedAt: generatedAt || new Date().toISOString() }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    }
+  }, [posts, trends, generatedAt])
+
+  const fetchTopArticles = async () => {
+    try {
+      const response = await fetch('/api/must-read?days=7')
+      const data = await response.json()
+      if (data.articles) {
+        setTopArticles(data.articles.slice(0, 5).map((a: any) => ({
+          title: a.displayTitle || a.title,
+          score: Math.round(a.adjusted_score)
+        })))
+      }
+    } catch (e) {
+      // Silently fail - this is optional
+    }
+  }
 
   const handleGenerate = async () => {
     setLoading(true)
@@ -51,6 +105,15 @@ export default function LinkedInGeneratorPage() {
       setLoading(false)
     }
   }
+  
+  const handleClearPosts = () => {
+    if (confirm('Clear all generated posts?')) {
+      setPosts([])
+      setTrends([])
+      setGeneratedAt(null)
+      localStorage.removeItem(STORAGE_KEY)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -76,6 +139,31 @@ export default function LinkedInGeneratorPage() {
             </div>
           </div>
 
+          {/* Top 10 Inspiration */}
+          {topArticles.length > 0 && (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-600" />
+                  <span className="font-medium text-amber-900 text-sm">From your Top 10 Must-Read</span>
+                </div>
+                <Link 
+                  href="/must-read" 
+                  className="text-xs text-amber-700 hover:text-amber-800 flex items-center gap-1"
+                >
+                  View all <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {topArticles.map((article, i) => (
+                  <div key={i} className="px-2 py-1 bg-white/80 rounded text-xs text-amber-800 border border-amber-200">
+                    {article.title.substring(0, 50)}...
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Generate Button */}
           <div className="bg-white border border-slate-200 rounded-xl p-6">
             <div className="flex items-center justify-between">
@@ -87,25 +175,40 @@ export default function LinkedInGeneratorPage() {
                   AI analyzes your weekly trends and generates 3 unique post drafts
                 </p>
               </div>
-              <button
-                onClick={handleGenerate}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white 
-                           rounded-lg font-semibold hover:bg-blue-700 transition-colors
-                           disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5" />
-                    Generate Posts
-                  </>
+              <div className="flex items-center gap-2">
+                {posts.length > 0 && (
+                  <button
+                    onClick={handleClearPosts}
+                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm"
+                  >
+                    Clear
+                  </button>
                 )}
-              </button>
+                <button
+                  onClick={handleGenerate}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white 
+                             rounded-lg font-semibold hover:bg-blue-700 transition-colors
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : posts.length > 0 ? (
+                    <>
+                      <RefreshCw className="w-5 h-5" />
+                      Regenerate
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5" />
+                      Generate Posts
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {error && (
