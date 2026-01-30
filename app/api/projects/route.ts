@@ -56,7 +56,13 @@ export async function POST(request: Request) {
                 quote_amount: body.quote_amount || null,
                 briefing: body.briefing_filename || body.briefing || null,
                 step_plan: body.step_plan_filename || body.step_plan || null,
-                is_archived: false
+                is_archived: false,
+                // V2: Project Intelligence fields
+                intelligence: body.intelligence || null,
+                intelligence_status: body.intelligence ? 'ready' : 'none',
+                intelligence_generated_at: body.intelligence ? new Date().toISOString() : null,
+                source_article_id: body.source_article_id || null,
+                source_article_url: body.source_article_url || null,
             }])
             .select()
             .single()
