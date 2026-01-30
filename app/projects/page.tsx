@@ -8,6 +8,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Plus, Archive, Eye, X, Sparkles, Briefcase, Edit3, Upload, FileText, Shield } from 'lucide-react'
 import Link from 'next/link'
 import confetti from 'canvas-confetti'
+import ProjectIntelligenceModal from '@/components/ProjectIntelligenceModal'
 
 interface Project {
   id: string
@@ -52,6 +53,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showIntelligenceModal, setShowIntelligenceModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
@@ -364,13 +366,22 @@ export default function ProjectsPage() {
             </button>
 
             {!showArchived && (
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-all text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Nieuw Project
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowIntelligenceModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 transition-all text-sm"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Nieuw Project
+                </button>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 border border-slate-200 text-slate-600 rounded-lg font-medium hover:bg-slate-50 transition-all text-sm"
+                  title="Snel toevoegen zonder analyse"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -408,10 +419,20 @@ export default function ProjectsPage() {
           </DndContext>
         )}
 
-        {/* Add Project Modal */}
+        {/* Project Intelligence Modal (Primary) */}
+        <ProjectIntelligenceModal
+          isOpen={showIntelligenceModal}
+          onClose={() => setShowIntelligenceModal(false)}
+          onProjectCreated={(project) => {
+            setProjects([project, ...projects])
+            setShowIntelligenceModal(false)
+          }}
+        />
+
+        {/* Quick Add Project Modal (Secondary) */}
         {showAddModal && (
           <ProjectFormModal
-            title="Nieuw Project"
+            title="Snel Project Toevoegen"
             project={newProject}
             onSave={addProject}
             onClose={() => setShowAddModal(false)}

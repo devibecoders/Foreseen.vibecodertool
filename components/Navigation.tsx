@@ -164,15 +164,7 @@ export default function Navigation() {
               <Target className="w-4 h-4" />
               Leads
             </Link>
-            <Link
-              href="/briefing"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/briefing'
-                ? 'bg-violet-100 text-violet-700'
-                : 'text-gray-700 hover:bg-slate-50'
-                }`}
-            >
-              📝 Briefing
-            </Link>
+{/* Briefing is now integrated into Projects */}
           </nav>
 
           <div className="text-xs text-gray-500 font-medium">
