@@ -1,6 +1,12 @@
 /**
  * API: Must-Read Top 10
- * Returns the top 10 articles with action suggestions
+ * 
+ * Automatically generates the top 10 must-read articles using:
+ * - Signal weights (personalization)
+ * - Decision history (feedback loop)
+ * - Intent labels (actionability)
+ * 
+ * V2: Full provenance tracking and project conversion support
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -17,6 +23,11 @@ export async function GET(req: NextRequest) {
     const supabase = supabaseAdmin()
     const { searchParams } = new URL(req.url)
     const scanId = searchParams.get('scanId')
+    const daysBack = parseInt(searchParams.get('days') || '7')
+
+    // Calculate date range
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - daysBack)
 
     // Fetch articles with clustering and analysis
     let query = supabase
@@ -30,6 +41,7 @@ export async function GET(req: NextRequest) {
         raw_content,
         cluster_id,
         is_cluster_primary,
+        scan_id,
         analyses (
           id,
           summary,
@@ -53,6 +65,7 @@ export async function GET(req: NextRequest) {
       `)
       // Only get primary articles or unclustered
       .or('cluster_id.is.null,is_cluster_primary.eq.true')
+      .gte('published_at', cutoffDate.toISOString())
       .order('published_at', { ascending: false })
       .limit(100) // Fetch more, filter to top 10 after scoring
 
@@ -66,18 +79,28 @@ export async function GET(req: NextRequest) {
 
     // Fetch user weights for scoring
     const { data: weights, error: weightsError } = await supabase
-      .from('user_signal_weights')
+      .from('signal_weights')
       .select('feature_key, weight, state, feature_type')
-      .eq('user_id', 'default-user')
-      .eq('state', 'active')
 
     if (weightsError) {
       console.warn('Failed to fetch weights:', weightsError.message)
     }
 
+    // Fetch recent decisions for context
+    const { data: recentDecisions } = await supabase
+      .from('decisions')
+      .select('article_id, action')
+      .gte('created_at', cutoffDate.toISOString())
+      .limit(50)
+
+    const decisionMap = new Map(
+      (recentDecisions || []).map(d => [d.article_id, d.action])
+    )
+
     // Transform articles for scoring
     const articlesForScoring = (articles || [])
       .filter(a => a.analyses && a.analyses.length > 0)
+      .filter(a => !decisionMap.has(a.id) || decisionMap.get(a.id) !== 'reject') // Exclude rejected
       .map(article => {
         const cluster = article.story_clusters?.[0]
         return {
@@ -99,8 +122,8 @@ export async function GET(req: NextRequest) {
     // Take top N
     const topArticles = scoredArticles.slice(0, TOP_N)
 
-    // Add action suggestions based on score and intent
-    const articlesWithActions = topArticles.map(article => {
+    // Add action suggestions, provenance, and project conversion data
+    const articlesWithActions = topArticles.map((article, index) => {
       const intent = article.analysis?.intent_label
       const score = article.adjusted_score
 
@@ -140,16 +163,52 @@ export async function GET(req: NextRequest) {
         actionRationale = 'High-impact controversy — assess risk to your projects immediately.'
       }
 
+      // Add provenance - link back to source scan/article
+      const provenance = {
+        scan_id: article.scan_id,
+        scan_url: article.scan_id ? `/research/scan/${article.scan_id}` : null,
+        original_url: article.url,
+        source: article.source,
+        published_at: article.published_at,
+      }
+
+      // Suggest project conversion for high-scoring actionable items
+      const canConvertToProject = 
+        suggestedAction === 'integrate' || 
+        (suggestedAction === 'experiment' && score >= 70)
+
+      const projectSuggestion = canConvertToProject ? {
+        suggested_name: `Research: ${article.displayTitle || article.title}`.substring(0, 100),
+        suggested_description: article.analysis?.summary || '',
+        suggested_tasks: [
+          `Review article: ${article.url}`,
+          suggestedAction === 'integrate' 
+            ? 'Implement findings into workflow'
+            : 'Run time-boxed experiment (2-4 hours)',
+          'Document learnings'
+        ]
+      } : null
+
       return {
         ...article,
+        rank: index + 1,
         suggestedAction,
         actionRationale,
+        provenance,
+        canConvertToProject,
+        projectSuggestion,
       }
     })
 
     return NextResponse.json({
       articles: articlesWithActions,
       total: articlesWithActions.length,
+      generated_at: new Date().toISOString(),
+      date_range: {
+        from: cutoffDate.toISOString(),
+        to: new Date().toISOString(),
+        days: daysBack,
+      },
       thresholds: {
         integrate: INTEGRATE_THRESHOLD,
         experiment: EXPERIMENT_THRESHOLD,

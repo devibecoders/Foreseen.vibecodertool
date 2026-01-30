@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
+import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import { ClusterBadge } from '@/components/ClusterBadge'
 import { OutcomeGenerator } from '@/components/OutcomeGenerator'
@@ -18,8 +19,26 @@ import {
   Lightbulb,
   AlertTriangle,
   TrendingUp,
-  RefreshCw
+  RefreshCw,
+  FolderPlus,
+  Link2,
+  Calendar,
+  Newspaper
 } from 'lucide-react'
+
+interface Provenance {
+  scan_id?: string
+  scan_url?: string
+  original_url: string
+  source: string
+  published_at: string
+}
+
+interface ProjectSuggestion {
+  suggested_name: string
+  suggested_description: string
+  suggested_tasks: string[]
+}
 
 interface MustReadArticle {
   id: string
@@ -31,6 +50,7 @@ interface MustReadArticle {
   sourceCount?: number
   allSources?: string[]
   clusterId?: string
+  rank: number
   analysis: {
     id: string
     summary: string
@@ -55,12 +75,18 @@ interface MustReadArticle {
   // Decision suggestion
   suggestedAction?: 'integrate' | 'experiment' | 'monitor'
   actionRationale?: string
+  // V2: Provenance and project conversion
+  provenance: Provenance
+  canConvertToProject: boolean
+  projectSuggestion: ProjectSuggestion | null
 }
 
 export default function MustReadPage() {
   const [articles, setArticles] = useState<MustReadArticle[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [dateRange, setDateRange] = useState<{ from: string; to: string; days: number } | null>(null)
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null)
 
   useEffect(() => {
     fetchMustReadArticles()
@@ -71,12 +97,13 @@ export default function MustReadPage() {
     else setLoading(true)
 
     try {
-      // Fetch scored articles with clustering
       const response = await fetch('/api/must-read')
       const data = await response.json()
       
       if (data.articles) {
         setArticles(data.articles)
+        setDateRange(data.date_range)
+        setGeneratedAt(data.generated_at)
       }
     } catch (error) {
       console.error('Error fetching must-read articles:', error)
@@ -109,7 +136,7 @@ export default function MustReadPage() {
                   Must-Read Top 10
                 </h1>
                 <p className="text-slate-600">
-                  Wat moet ik doen? — Your personalized action list
+                  Automatisch gegenereerd — Wat moet ik doen?
                 </p>
               </div>
             </div>
@@ -125,6 +152,21 @@ export default function MustReadPage() {
               Refresh
             </button>
           </div>
+
+          {/* Generation info */}
+          {dateRange && (
+            <div className="flex items-center gap-4 text-sm text-slate-500 mb-4">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                Laatste {dateRange.days} dagen
+              </span>
+              {generatedAt && (
+                <span>
+                  Gegenereerd: {format(new Date(generatedAt), 'HH:mm')}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Quick stats */}
           <div className="grid grid-cols-3 gap-4">
@@ -162,7 +204,7 @@ export default function MustReadPage() {
             <div className="text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 
                               border-2 border-slate-200 border-t-slate-900 mb-4" />
-              <p className="text-sm text-slate-600">Loading your must-reads...</p>
+              <p className="text-sm text-slate-600">Generating your must-reads...</p>
             </div>
           </div>
         ) : articles.length === 0 ? (
@@ -186,11 +228,10 @@ export default function MustReadPage() {
                   </span>
                 </div>
                 <div className="space-y-4">
-                  {integrateNow.map((article, index) => (
+                  {integrateNow.map((article) => (
                     <MustReadCard 
                       key={article.id} 
                       article={article} 
-                      rank={index + 1}
                       variant="integrate"
                     />
                   ))}
@@ -211,11 +252,10 @@ export default function MustReadPage() {
                   </span>
                 </div>
                 <div className="space-y-4">
-                  {experimentWith.map((article, index) => (
+                  {experimentWith.map((article) => (
                     <MustReadCard 
                       key={article.id} 
                       article={article} 
-                      rank={integrateNow.length + index + 1}
                       variant="experiment"
                     />
                   ))}
@@ -236,11 +276,10 @@ export default function MustReadPage() {
                   </span>
                 </div>
                 <div className="space-y-4">
-                  {keepWatching.map((article, index) => (
+                  {keepWatching.map((article) => (
                     <MustReadCard 
                       key={article.id} 
                       article={article} 
-                      rank={integrateNow.length + experimentWith.length + index + 1}
                       variant="monitor"
                     />
                   ))}
@@ -256,14 +295,14 @@ export default function MustReadPage() {
 
 function MustReadCard({ 
   article, 
-  rank,
   variant 
 }: { 
   article: MustReadArticle
-  rank: number
   variant: 'integrate' | 'experiment' | 'monitor'
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const router = useRouter()
 
   const variantStyles = {
     integrate: 'border-green-200 bg-white hover:border-green-300',
@@ -279,6 +318,43 @@ function MustReadCard({
 
   const takeaways = article.analysis?.key_takeaways?.split('|||').filter(Boolean) || []
 
+  const handleCreateProject = async () => {
+    if (!article.projectSuggestion) return
+    
+    setCreating(true)
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: article.projectSuggestion.suggested_name,
+          description: article.projectSuggestion.suggested_description,
+          source_article_id: article.id,
+          source_article_url: article.url,
+          status: 'planning',
+          // Intelligence will be populated from the article context
+          intelligence: {
+            fromMustRead: true,
+            articleTitle: article.title,
+            articleUrl: article.url,
+            suggestedAction: article.suggestedAction,
+            actionRationale: article.actionRationale,
+            suggestedTasks: article.projectSuggestion.suggested_tasks,
+          }
+        }),
+      })
+      
+      const data = await response.json()
+      if (data.project) {
+        router.push(`/projects?new=${data.project.id}`)
+      }
+    } catch (error) {
+      console.error('Error creating project:', error)
+    } finally {
+      setCreating(false)
+    }
+  }
+
   return (
     <div 
       className={`border-2 rounded-xl p-5 transition-all cursor-pointer ${variantStyles[variant]}`}
@@ -289,7 +365,7 @@ function MustReadCard({
         {/* Rank Badge */}
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 
                         flex items-center justify-center">
-          <span className="text-white text-sm font-bold">#{rank}</span>
+          <span className="text-white text-sm font-bold">#{article.rank}</span>
         </div>
 
         {/* Main Content */}
@@ -372,6 +448,24 @@ function MustReadCard({
               </div>
             </div>
           )}
+
+          {/* Provenance */}
+          <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
+            <span className="flex items-center gap-1">
+              <Newspaper className="w-3 h-3" />
+              {article.provenance.source}
+            </span>
+            {article.provenance.scan_url && (
+              <a 
+                href={article.provenance.scan_url}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 hover:text-slate-600"
+              >
+                <Link2 className="w-3 h-3" />
+                View in scan
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Action buttons */}
@@ -387,6 +481,26 @@ function MustReadCard({
             Read
             <ExternalLink className="w-3 h-3" />
           </a>
+          
+          {article.canConvertToProject && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleCreateProject()
+              }}
+              disabled={creating}
+              className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white 
+                         rounded-lg text-xs font-medium hover:bg-purple-700 transition-colors
+                         disabled:opacity-50"
+            >
+              {creating ? 'Creating...' : (
+                <>
+                  <FolderPlus className="w-3 h-3" />
+                  Project
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -432,12 +546,34 @@ function MustReadCard({
             </div>
           )}
 
+          {/* Project Suggestion */}
+          {article.projectSuggestion && (
+            <div className="mb-4 p-3 bg-purple-50 rounded-lg">
+              <h4 className="text-sm font-medium text-purple-900 mb-2 flex items-center gap-1.5">
+                <FolderPlus className="w-4 h-4" />
+                Project Suggestion
+              </h4>
+              <p className="text-sm text-purple-800 mb-2">{article.projectSuggestion.suggested_name}</p>
+              <ul className="space-y-1">
+                {article.projectSuggestion.suggested_tasks.map((task, i) => (
+                  <li key={i} className="text-xs text-purple-700 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    {task}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Explainability */}
-          {(article.reasons.boosted.length > 0 || article.reasons.suppressed.length > 0) && (
+          {(article.reasons?.boosted?.length > 0 || article.reasons?.suppressed?.length > 0) && (
             <ArticleExplainability
+              articleId={article.id}
               baseScore={article.base_score}
               adjustedScore={article.adjusted_score}
-              reasons={article.reasons}
+              preferenceDelta={article.preference_delta}
+              boosted={article.reasons.boosted}
+              suppressed={article.reasons.suppressed}
               isPersonalized={article.isPersonalized}
             />
           )}
