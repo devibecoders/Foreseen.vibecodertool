@@ -30,7 +30,7 @@ export default function MobileBottomNav() {
             label: 'Projects',
             icon: Folder,
             href: '/projects',
-            active: pathname === '/projects'
+            active: pathname?.startsWith('/projects')
         }
     ]
 
