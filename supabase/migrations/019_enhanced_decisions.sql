@@ -87,8 +87,8 @@ SELECT
     COUNT(*) FILTER (WHERE last_decision_at IS NULL) as never_used,
     COUNT(*) FILTER (WHERE last_decision_at < now() - interval '4 weeks') as stale_4w,
     COUNT(*) FILTER (WHERE last_decision_at < now() - interval '8 weeks') as stale_8w,
-    ROUND(AVG(ABS(weight)), 2) as avg_weight,
-    ROUND(AVG(decision_count), 1) as avg_decisions
+    ROUND(AVG(ABS(weight))::numeric, 2) as avg_weight,
+    ROUND(AVG(decision_count)::numeric, 1) as avg_decisions
 FROM public.user_signal_weights
 WHERE user_id = 'default-user'
 GROUP BY feature_type
