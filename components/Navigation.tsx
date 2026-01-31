@@ -147,7 +147,7 @@ export default function Navigation() {
             </Link>
             <Link
               href="/projects"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/projects' || pathname === '/briefing'
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname?.startsWith('/projects')
                 ? 'bg-slate-900 text-white'
                 : 'text-gray-700 hover:bg-slate-50'
                 }`}
