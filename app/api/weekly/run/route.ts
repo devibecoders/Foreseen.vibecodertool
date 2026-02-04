@@ -69,21 +69,46 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Get articles for the date range from Supabase
-      const { data: articles, error: articlesError } = await supabase
-        .from('articles')
-        .select(`
-          *,
-          analyses (*)
-        `)
-        .gte('published_at', startDate.toISOString())
-        .lte('published_at', endDate.toISOString())
-        .order('published_at', { ascending: false })
+      // Get articles - either from scan_id or by date range
+      let articles: any[] = []
+      let articlesError: any = null
+
+      if (scan_id) {
+        // Mode: From Scan - get articles linked to this specific scan
+        const result = await supabase
+          .from('articles')
+          .select(`
+            *,
+            analyses (*)
+          `)
+          .eq('scan_id', scan_id)
+          .order('published_at', { ascending: false })
+        
+        articles = result.data || []
+        articlesError = result.error
+        console.log(`[Weekly] Fetching articles from scan ${scan_id}: found ${articles.length}`)
+      } else {
+        // Mode: Date range - get articles by published_at
+        const result = await supabase
+          .from('articles')
+          .select(`
+            *,
+            analyses (*)
+          `)
+          .gte('published_at', startDate.toISOString())
+          .lte('published_at', endDate.toISOString())
+          .order('published_at', { ascending: false })
+        
+        articles = result.data || []
+        articlesError = result.error
+        console.log(`[Weekly] Fetching articles by date range: found ${articles.length}`)
+      }
 
       if (articlesError) throw new Error(`Failed to fetch articles: ${articlesError.message}`)
 
       const articlesWithAnalysis = (articles || []).filter((a: any) => a.analyses && a.analyses.length > 0)
       const itemsConsidered = articlesWithAnalysis.length
+      console.log(`[Weekly] Articles with analysis: ${itemsConsidered}`)
 
       await supabase
         .from('weekly_runs')
