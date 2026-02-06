@@ -118,10 +118,11 @@ export class WeeklySynthesisService {
   async generateSynthesis(
     startDate: Date,
     endDate: Date,
-    maxArticles: number = 40
+    maxArticles: number = 40,
+    scanId?: string
   ): Promise<WeeklySynthesis> {
-    // 1. Select articles
-    const articles = await this.selectArticles(startDate, endDate, maxArticles)
+    // 1. Select articles (by scan_id if provided, otherwise by date range)
+    const articles = await this.selectArticles(startDate, endDate, maxArticles, scanId)
 
     if (articles.length === 0) {
       throw new Error('No articles found for the specified date range')
@@ -142,27 +143,42 @@ export class WeeklySynthesisService {
     }
   }
 
-  private async selectArticles(startDate: Date, endDate: Date, maxArticles: number) {
+  private async selectArticles(startDate: Date, endDate: Date, maxArticles: number, scanId?: string) {
     const supabase = supabaseAdmin()
 
-    // Fetch articles with analyses from Supabase
-    const { data: articles, error } = await supabase
+    // Build query - use scan_id if provided, otherwise fall back to date range
+    let query = supabase
       .from('articles')
       .select(`
         *,
         analyses (*)
       `)
-      .gte('published_at', startDate.toISOString())
-      .lte('published_at', endDate.toISOString())
+
+    if (scanId) {
+      // Mode: From Scan - get articles linked to this specific scan
+      console.log(`[WeeklySynthesis] Selecting articles from scan: ${scanId}`)
+      query = query.eq('scan_id', scanId)
+    } else {
+      // Mode: Date range - get articles by published_at
+      console.log(`[WeeklySynthesis] Selecting articles by date range: ${startDate.toISOString()} - ${endDate.toISOString()}`)
+      query = query
+        .gte('published_at', startDate.toISOString())
+        .lte('published_at', endDate.toISOString())
+    }
+
+    const { data: articles, error } = await query
       .order('published_at', { ascending: false })
       .limit(maxArticles)
 
     if (error) throw new Error(`Failed to fetch articles: ${error.message}`)
 
     // Filter to only articles with analysis and sort by impact score
-    return (articles || [])
+    const filtered = (articles || [])
       .filter((a: any) => a.analyses && a.analyses.length > 0)
       .sort((a: any, b: any) => (b.analyses[0]?.impact_score || 0) - (a.analyses[0]?.impact_score || 0))
+
+    console.log(`[WeeklySynthesis] Found ${articles?.length || 0} articles, ${filtered.length} with analyses`)
+    return filtered
   }
 
   private prepareContext(articles: any[], startDate: Date, endDate: Date): string {

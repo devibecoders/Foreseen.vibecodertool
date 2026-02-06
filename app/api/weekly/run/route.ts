@@ -131,11 +131,12 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Generate synthesis
+      // Generate synthesis (pass scan_id if using "from scan" mode)
       const synthesis = await weeklySynthesisService.generateSynthesis(
         startDate,
         endDate,
-        40
+        40,
+        scan_id
       )
 
       // Create weekly_brief record with scan_id if provided
