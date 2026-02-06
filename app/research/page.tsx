@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import Navigation from '@/components/Navigation'
-import { BarChart3, FileText, CheckSquare, Play, Sparkles, ChevronRight, Clock, AlertCircle, Brain } from 'lucide-react'
+import { BarChart3, FileText, CheckSquare, Play, Sparkles, ChevronRight, Clock, AlertCircle, Brain, Star, Linkedin } from 'lucide-react'
 
 interface LastScan {
     id: string
@@ -318,10 +318,42 @@ export default function ResearchPage() {
                     </div>
                 </div>
 
+                {/* Quick Links - Tools */}
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                    <Link
+                        href="/must-read"
+                        className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 hover:shadow-md transition-all active:scale-[0.98] group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center group-hover:bg-amber-200 transition-colors">
+                                <Star className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-gray-900">Must-Read</p>
+                                <p className="text-xs text-gray-500">Top 10 artikelen</p>
+                            </div>
+                        </div>
+                    </Link>
+                    <Link
+                        href="/linkedin"
+                        className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 hover:shadow-md transition-all active:scale-[0.98] group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                                <Linkedin className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-gray-900">LinkedIn</p>
+                                <p className="text-xs text-gray-500">Post generator</p>
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+
                 {/* Quick Info */}
-                <div className="mt-8 bg-slate-100 rounded-xl p-5">
+                <div className="mt-6 bg-slate-100 rounded-xl p-5">
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">Research Flow</h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex flex-wrap items-center gap-2 md:gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                             <span className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center">1</span>
                             <span>Scan</span>
@@ -338,6 +370,9 @@ export default function ResearchPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Bottom padding for mobile nav */}
+                <div className="h-20 md:hidden" />
             </main>
         </div>
     )
